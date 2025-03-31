@@ -1,10 +1,8 @@
 "use client"
-import { React, Suspense } from "react";
-// import ThreeScene from "../components/ThreeScene";
+import { React, Suspense, useRef } from "react";
 import Box from "../components/Box.tsx";
 import { Canvas } from "@react-three/fiber";
 import { Physics, RigidBody, CuboidCollider, CapsuleCollider } from "@react-three/rapier";
-import Floor from "../components/Floor";
 import LightBulb from "../components/LightBulb";
 import OrbitControls from "../components/OrbitControls";
 import BaseMap from '../components/BaseMap'
@@ -12,9 +10,9 @@ import { Environment } from '@react-three/drei'
 import Character from "../components/Character";
 
 
-
-
 export default function Home() {
+  const characterBodyRef = useRef(null);
+  
   return (
     <div className="w-full h-screen">
       <Canvas
@@ -26,20 +24,24 @@ export default function Home() {
         <ambientLight color={"white"} intensity={0.3} />
         <LightBulb position={[0, 3, 0]} />
         <Suspense>
-          <Physics debug>
+          <Physics debug gravity={[0, -20, 0]}>
             {/* --------- Character Setup -----------*/}
-            <RigidBody   colliders={false} // Disable automatic colliders
+            <RigidBody
+              ref={characterBodyRef}
+              colliders={false}
               restitution={0}
-              friction={0.7}
+              friction={0.5}
               linearDamping={0.5}
               angularDamping={100}
-              position={[0, 5, 0]}> // Start higher up            
+              lockRotations={true} // Important to keep character upright
+              position={[0, 5, 0]}
+            >
               <Suspense fallback={null}>
-                  <Character position={[0,5,7]} />
+                  <Character position={[0,0,0]} bodyRef={characterBodyRef} />
               </Suspense>
               <CuboidCollider 
-                args={[0.4, 0.9, 0.4]} // [halfWidth, halfHeight, halfDepth] - adjust to match your character dimensions
-                position={[0, 5.9, 7]} // Position it at the center of the character
+                args={[0.4, 1.45, 0.4]} // [halfWidth, halfHeight, halfDepth] - adjust to match your character dimensions
+                position={[0, 1.5, 0]}
               />
             </RigidBody>
           <OrbitControls />
@@ -51,7 +53,6 @@ export default function Home() {
           <Environment preset="sunset" background />
         </Suspense>
       </Canvas>
-      {/* <ThreeScene/> */}
     </div>
   );
 }
