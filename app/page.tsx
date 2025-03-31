@@ -1,5 +1,5 @@
 "use client"
-import { React, Suspense, useRef } from "react";
+import { React, Suspense, useRef, useEffect } from "react";
 import Box from "../components/Box.tsx";
 import { Canvas } from "@react-three/fiber";
 import { Physics, RigidBody, CuboidCollider, CapsuleCollider } from "@react-three/rapier";
@@ -12,7 +12,33 @@ import Character from "../components/Character";
 
 export default function Home() {
   const characterBodyRef = useRef(null);
+  const startPosition = [0, 5, 0]; // Store initial position for reset
+  const fallThreshold = -20; // Reset character if Y position is below this value
   
+  // Check if character is out of bounds
+  useEffect(() => {
+    const checkPosition = setInterval(() => {
+      if (characterBodyRef.current) {
+        const pos = characterBodyRef.current.translation();
+        
+        // If character falls below threshold, reset position
+        if (pos.y < fallThreshold) {
+          characterBodyRef.current.setTranslation({ 
+            x: startPosition[0], 
+            y: startPosition[1], 
+            z: startPosition[2] 
+          });
+          
+          // Reset velocity to prevent falling momentum
+          characterBodyRef.current.setLinvel({ x: 0, y: 0, z: 0 });
+          characterBodyRef.current.setAngvel({ x: 0, y: 0, z: 0 });
+        }
+      }
+    }, 100); // Check every 100ms
+    
+    return () => clearInterval(checkPosition);
+  }, []);
+
   return (
     <div className="w-full h-screen">
       <Canvas
@@ -34,7 +60,7 @@ export default function Home() {
               linearDamping={0.5}
               angularDamping={100}
               lockRotations={true} // Important to keep character upright
-              position={[0, 5, 0]}
+              position={startPosition}
             >
               <Suspense fallback={null}>
                   <Character position={[0,0,0]} bodyRef={characterBodyRef} />
