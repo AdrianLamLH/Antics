@@ -16,6 +16,9 @@ export default function CharacterAI({
   const continuousModeRef = useRef(null);
 
   const [currentUserMessage, setCurrentUserMessage] = useState("");
+
+  // Add a new state for the current animation
+  const [currentAnimation, setCurrentAnimation] = useState('idle');
   
   // Create character controls
   const controls = useCallback(() => {
@@ -218,7 +221,7 @@ export default function CharacterAI({
         
         // Enhanced dramatic jump
         // Higher jumps with optional horizontal momentum
-        const actualHeight = Math.max(height, 15); // Ensure minimum height of 15
+        const actualHeight = Math.min(height, 15); // Ensure minimum height of 15
         
         // Add slight horizontal momentum based on character's current facing direction
         const currentRotation = characterBodyRef.current.rotation();
@@ -459,8 +462,45 @@ const stopContinuousMode = useCallback(() => {
       action.delay = Math.floor(action.delay * 0.8);
     });
     
+    // Helper function to set appropriate animation
+    const setAnimationForAction = (actionType, value) => {
+      switch(actionType) {
+        case 'moveForward':
+        case 'moveBackward':
+        case 'moveLeft':
+        case 'moveRight':
+          // Use run animation for fast movements, walk for slower ones
+          setCurrentAnimation(value > 8 ? 'run' : 'walk');
+          break;
+        case 'jump':
+          setCurrentAnimation('jump');
+          break;
+        case 'wait':
+          setCurrentAnimation('idle');
+          break;
+        case 'turn':
+          // Keep current animation during turns
+          break;
+        default:
+          // Default back to idle
+          setCurrentAnimation('idle');
+      }
+    };
+    
+    // Execute the optimized actions
     // Execute the optimized actions
     for (const action of optimizedActions) {
+      // Set animation based on action type
+      if (action.type === 'moveForward' || action.type === 'moveBackward' || 
+          action.type === 'moveLeft' || action.type === 'moveRight') {
+        // Run for faster movements, walk for slower ones
+        setCurrentAnimation(action.value > 8 ? 'run' : 'walk');
+      } else if (action.type === 'jump') {
+        setCurrentAnimation('jump');
+      } else if (action.type === 'wait') {
+        setCurrentAnimation('idle');
+      }
+      
       await new Promise(resolve => {
         actionsTimeoutRef.current = setTimeout(async () => {
           const { type, value, delay } = action;
@@ -475,7 +515,15 @@ const stopContinuousMode = useCallback(() => {
           resolve();
         }, action.delay || 400); // Use slightly reduced delays for snappier movement
       });
+      
+      // Wait a bit after jumping before changing animation
+      if (action.type === 'jump') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
+    
+    // Reset animation to idle when done
+    setCurrentAnimation('idle');
     
     console.log(`Completed dramatic action sequence in ${totalExecutionTime}ms`);
   }, [controls, optimizeActionSequence]);
@@ -540,21 +588,22 @@ const stopContinuousMode = useCallback(() => {
   useEffect(() => {
     if (onStateChange) {
       onStateChange({
-        aiResponse,  // Make sure this is included
+        aiResponse,
         capturingView,
         executing,
         autoMode,
+        currentAnimation, // Include the animation state
         toggleAutoMode,
         triggerCapture: (userMessage = "") => {
           if (!capturingView && !executing) {
             console.log("triggerCapture called from parent");
-            setCurrentUserMessage(userMessage);  // Store the message
+            setCurrentUserMessage(userMessage);
             setCapturingView(true);
           }
         }
       });
     }
-  }, [aiResponse, capturingView, executing, autoMode, onStateChange, toggleAutoMode]);
+  }, [aiResponse, capturingView, executing, autoMode, currentAnimation, onStateChange, toggleAutoMode]);
   
   // Clean up timeouts on unmount
   useEffect(() => {

@@ -65,7 +65,7 @@ MOVEMENT GUIDELINES:
         ACTIONS:
         moveForward 8 1000
         turn 0.7 500
-        jump 20 800
+        jump 40 800
         wait 300 300
 
         Only include ACTIONS if the user is requesting movement or actions. 
@@ -209,8 +209,8 @@ MOVEMENT GUIDELINES:
                 
                 // Amplify jumps
                 if (type === 'jump') {
-                  // At least 15, at most 25
-                  value = Math.max(15, Math.min(value * 1.5, 25));
+                  // At least 20, at most 30
+                  value = Math.max(20, Math.min(value * 1.5, 30));
                 }
                 
                 aiResponse.actions.push({

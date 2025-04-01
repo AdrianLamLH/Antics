@@ -24,6 +24,7 @@ export default function Home() {
   const [triggerCapture, setTriggerCapture] = useState(() => () => {});
   const [toggleAutoMode, setToggleAutoMode] = useState(() => () => {});
   
+  const [currentAnimation, setCurrentAnimation] = useState('idle');
 
   const [userMessage, setUserMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
@@ -68,20 +69,33 @@ export default function Home() {
     setExecuting(state.executing);
     setAutoMode(state.autoMode || false);
     setTriggerCapture(() => state.triggerCapture);
+    
+    // Update current animation if provided
+    if (state.currentAnimation) {
+      setCurrentAnimation(state.currentAnimation);
+    }
+    
     if (state.toggleAutoMode) {
       setToggleAutoMode(() => state.toggleAutoMode);
     }
+
     
     // If there's a new AI response with speech, add it to chat history
-    if (state.aiResponse && 
-        state.aiResponse.speech && 
-        (!previousResponse || previousResponse.speech !== state.aiResponse.speech)) {
-      setChatHistory(prev => [...prev, { 
-        sender: 'ai', 
-        text: state.aiResponse.speech 
-      }]);
+    if (state.aiResponse && state.aiResponse.speech) {
+      const aiSpeech = state.aiResponse.speech;
+      
+      // Check the last message in chat history to avoid duplication
+      const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+      
+      // Only add to chat history if it's not already the last message
+      if (!lastMessage || lastMessage.sender !== 'ai' || lastMessage.text !== aiSpeech) {
+        setChatHistory(prev => [...prev, { 
+          sender: 'ai', 
+          text: aiSpeech 
+        }]);
+      }
     }
-  }, [aiResponse]);
+  }, [chatHistory]);
   
   // Check if character is out of bounds
   useEffect(() => {
@@ -202,7 +216,7 @@ export default function Home() {
         <LightBulb position={[0, 3, 0]} />
         <Suspense>
           <Physics debug gravity={[0, -20, 0]}>
-            {/* --------- Character Setup -----------*/}
+            {/* Character Setup */}
             <RigidBody
               ref={characterBodyRef}
               colliders={false}
@@ -230,7 +244,11 @@ export default function Home() {
               </CharacterAI>
               
               <Suspense fallback={null}>
-                <Character position={[0,0,0]} bodyRef={characterBodyRef} />
+                <Character 
+                  position={[0,0,0]} 
+                  bodyRef={characterBodyRef} 
+                  currentAnimation={currentAnimation} // Pass the current animation
+                />
               </Suspense>
               <CuboidCollider 
                 args={[0.4, 1.45, 0.4]}
@@ -241,7 +259,7 @@ export default function Home() {
             {/* Only show OrbitControls in third-person view */}
             {!isFirstPerson && <OrbitControls />}
             
-            <RigidBody type="fixed" colliders={"trimesh"}>
+            <RigidBody type="fixed" colliders={"hull"}>
               <BaseMap position={[0,-25,0]}/>
             </RigidBody>
           </Physics>

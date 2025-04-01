@@ -3,11 +3,11 @@ import { useGLTF, useAnimations } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
-export default function Character({ bodyRef, ...props }) {
+export default function Character({ bodyRef, currentAnimation = 'idle', ...props }) {
     const group = useRef(null)
     const { scene, animations } = useGLTF('/midoriya.glb')
     const { actions, names } = useAnimations(animations, group)
-    const [currentAnimation, setCurrentAnimation] = useState('idle')
+    const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
     
     // Animation controls
@@ -18,6 +18,14 @@ export default function Character({ bodyRef, ...props }) {
         direction: new THREE.Vector3(), // Movement direction
         jumping: false
     }).current
+
+    // Watch for animation changes from props
+    useEffect(() => {
+        if (currentAnimation && currentAnimation !== activeAnimation) {
+            playAnimation(currentAnimation);
+        }
+    }, [currentAnimation, activeAnimation]);
+    
     
     // Handle movement in every frame
     useFrame(() => {
@@ -100,9 +108,11 @@ export default function Character({ bodyRef, ...props }) {
     
     // Function to play a specific animation
     const playAnimation = (animName) => {
+        console.log(`Playing animation: ${animName}`);
         let action = actions[animName]
         
         if (!action && names.length > 0) {
+            // Find animation by partial match
             const match = names.find(name => 
                 name.toLowerCase().includes(animName.toLowerCase())
             ) || names[0]
@@ -113,7 +123,9 @@ export default function Character({ bodyRef, ...props }) {
         if (action) {
             Object.values(actions).forEach(a => a.fadeOut(0.5))
             action.reset().fadeIn(0.5).play()
-            setCurrentAnimation(animName)
+            setActiveAnimation(animName)
+        } else {
+            console.warn(`Animation not found: ${animName}. Available animations:`, names);
         }
     }
     
@@ -149,7 +161,10 @@ export default function Character({ bodyRef, ...props }) {
             const idleAnim = names.find(name => name.toLowerCase().includes('idle')) || names[0]
             playAnimation(idleAnim)
         }
-    }, [actions, names])
+        
+        // Log available animations for debugging
+        console.log("Available animations:", names);
+    }, [actions, names]);
     
     return (
         <group ref={group} position={props.position} onClick={(e) => {
