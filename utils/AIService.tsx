@@ -1,25 +1,30 @@
-// Function to request AI actions
-export async function requestAIActions(imageData, characterControls) {
-    try {
-      const response = await fetch('/api/ai-character', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: imageData,
-          controls: characterControls, // Pass current movement capabilities
-        }),
-      });
-      
-      if (!response.ok) throw new Error('AI request failed');
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI actions:', error);
-      return { 
-        thought: "Error processing vision",
-        speech: "I'm not sure what to do next.",
-        actions: [] 
-      };
+// Update the requestAIActions function to include character configuration
+export async function requestAIActions(imageData, controlMethods, characterConfig = null) {
+  try {
+    const response = await fetch('/api/ai-character', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: imageData,
+        controls: controlMethods,
+        characterConfig: characterConfig // Pass the configuration
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error calling AI service:', error);
+    return {
+      thought: 'I seem to be having trouble processing what I see.',
+      speech: 'Sorry, I encountered an error while analyzing the environment.',
+      actions: []
+    };
   }
+}

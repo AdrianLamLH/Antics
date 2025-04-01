@@ -417,7 +417,7 @@ export default function CharacterAI({
     }
   }, [capturingView, executing, scheduleNextCapture]);
 
-  const stopContinuousMode = useCallback(() => {
+const stopContinuousMode = useCallback(() => {
     console.log("Stopping continuous mode");
     if (continuousModeRef.current) {
       clearTimeout(continuousModeRef.current);

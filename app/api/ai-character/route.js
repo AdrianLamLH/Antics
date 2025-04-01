@@ -1,9 +1,66 @@
 export async function POST(req) {
     try {
-      const { image, controls } = await req.json();
+      const { image, controls, characterConfig } = await req.json();
       
       console.log("Received request with controls:", controls);
       
+      // Build the AI prompt based on character configuration
+      let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.`;
+      
+      // Add personality and biography if provided
+      if (characterConfig) {
+        if (characterConfig.personality) {
+          characterPrompt += `\n\nYour personality: ${characterConfig.personality}`;
+        }
+        
+        if (characterConfig.biography) {
+          characterPrompt += `\n\nYour biography: ${characterConfig.biography}`;
+        }
+        
+        // Add attributes if provided
+        if (characterConfig.attributes && characterConfig.attributes.length > 0) {
+          characterPrompt += `\n\nYour current attributes:`;
+          characterConfig.attributes.forEach(attr => {
+            characterPrompt += `\n- ${attr.name}: ${attr.value}/${attr.max}`;
+          });
+        }
+      }
+      
+      characterPrompt += `\n\nWhen the user messages you:
+1. Respond conversationally as if you're a character in this world
+2. If they ask you to do something or move somewhere, include DRAMATIC and BOLD movement instructions
+
+You can perform these actions: ${controls.join(', ')}
+
+MOVEMENT GUIDELINES:
+- Create BIG, DRAMATIC movements using larger distances (5-15 units)
+- Use bold, expressive turns (0.5-1.2 radians)
+- Make jumps high and dynamic (15-25 height units)
+- Combine movements in flowing, cinematic sequences
+- Think like a parkour artist or action movie character`;
+
+      // Add reference to custom actions if available
+      if (characterConfig && characterConfig.customActions && characterConfig.customActions.length > 0) {
+        characterPrompt += `\n\nSPECIAL ACTIONS AVAILABLE:`;
+        characterConfig.customActions.forEach(action => {
+          characterPrompt += `\n- ${action.name}: ${action.description}`;
+        });
+      }
+
+      characterPrompt += `\n\nThe format of your movement instructions is critical - follow it exactly:
+
+THOUGHT: Brief internal thought about the user's request
+SPEECH: Your conversational response to the user
+ACTIONS:
+moveForward 8 1000
+turn 0.7 500
+jump 20 800
+wait 300 300
+
+Only include ACTIONS if the user is requesting movement or actions. 
+When the user is just chatting, only include THOUGHT and SPEECH sections.
+Each action must be on its own line with the format: actionType value delay`;
+
       // Call Claude API with the image
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -21,34 +78,7 @@ export async function POST(req) {
               content: [
                 {
                   type: "text",
-                  text: `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.
-
-When the user messages you:
-1. Respond conversationally as if you're a character in this world
-2. If they ask you to do something or move somewhere, include DRAMATIC and BOLD movement instructions
-
-You can perform these actions: ${controls.join(', ')}
-
-MOVEMENT GUIDELINES:
-- Create BIG, DRAMATIC movements using larger distances (5-15 units)
-- Use bold, expressive turns (0.5-1.2 radians)
-- Make jumps high and dynamic (15-25 height units)
-- Combine movements in flowing, cinematic sequences
-- Think like a parkour artist or action movie character
-
-The format of your movement instructions is critical - follow it exactly:
-
-THOUGHT: Brief internal thought about the user's request
-SPEECH: Your conversational response to the user
-ACTIONS:
-moveForward 8 1000
-turn 0.7 500
-jump 20 800
-wait 300 300
-
-Only include ACTIONS if the user is requesting movement or actions. 
-When the user is just chatting, only include THOUGHT and SPEECH sections.
-Each action must be on its own line with the format: actionType value delay`
+                  text: characterPrompt
                 },
                 {
                   type: "image",
