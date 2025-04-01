@@ -15,7 +15,8 @@ export function AIActionButton({ isFirstPerson, capturingView, executing, trigge
   const handleClick = () => {
     console.log("AI action button clicked");
     if (triggerCapture && !capturingView && !executing) {
-      triggerCapture();
+      // You can pass an empty message or a default greeting
+      triggerCapture("Hello, what do you see?");
     }
   };
   

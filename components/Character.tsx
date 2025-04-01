@@ -50,53 +50,53 @@ export default function Character({ bodyRef, ...props }) {
     })
     
     // Set up keyboard controls
-    useEffect(() => {
-        const onKeyDown = (event) => {
-            const key = controls.key
-            switch (event.code) {
-                case 'ArrowUp': case 'KeyW': case 'KeyZ': key[0] = -1; break
-                case 'ArrowDown': case 'KeyS': key[0] = 1; break
-                case 'ArrowLeft': case 'KeyA': case 'KeyQ': key[1] = -1; break
-                case 'ArrowRight': case 'KeyD': key[1] = 1; break
-                case 'ShiftLeft': case 'ShiftRight': key[2] = 1; break
-                case 'Space': 
-                    if (!controls.jumping) handleJump(); 
-                    break
-            }
-            updateCurrentAnimation()
-        }
+    // useEffect(() => {
+    //     const onKeyDown = (event) => {
+    //         const key = controls.key
+    //         switch (event.code) {
+    //             case 'ArrowUp': case 'KeyW': case 'KeyZ': key[0] = -1; break
+    //             case 'ArrowDown': case 'KeyS': key[0] = 1; break
+    //             case 'ArrowLeft': case 'KeyA': case 'KeyQ': key[1] = -1; break
+    //             case 'ArrowRight': case 'KeyD': key[1] = 1; break
+    //             case 'ShiftLeft': case 'ShiftRight': key[2] = 1; break
+    //             case 'Space': 
+    //                 if (!controls.jumping) handleJump(); 
+    //                 break
+    //         }
+    //         updateCurrentAnimation()
+    //     }
         
-        const onKeyUp = (event) => {
-            const key = controls.key
-            switch (event.code) {
-                case 'ArrowUp': case 'KeyW': case 'KeyZ': key[0] = key[0]<0 ? 0:key[0]; break
-                case 'ArrowDown': case 'KeyS': key[0] = key[0]>0 ? 0:key[0]; break
-                case 'ArrowLeft': case 'KeyA': case 'KeyQ': key[1] = key[1]<0 ? 0:key[1]; break
-                case 'ArrowRight': case 'KeyD': key[1] = key[1]>0 ? 0:key[1]; break
-                case 'ShiftLeft': case 'ShiftRight': key[2] = 0; break
-            }
-            updateCurrentAnimation()
-        }
+    //     const onKeyUp = (event) => {
+    //         const key = controls.key
+    //         switch (event.code) {
+    //             case 'ArrowUp': case 'KeyW': case 'KeyZ': key[0] = key[0]<0 ? 0:key[0]; break
+    //             case 'ArrowDown': case 'KeyS': key[0] = key[0]>0 ? 0:key[0]; break
+    //             case 'ArrowLeft': case 'KeyA': case 'KeyQ': key[1] = key[1]<0 ? 0:key[1]; break
+    //             case 'ArrowRight': case 'KeyD': key[1] = key[1]>0 ? 0:key[1]; break
+    //             case 'ShiftLeft': case 'ShiftRight': key[2] = 0; break
+    //         }
+    //         updateCurrentAnimation()
+    //     }
         
-        const updateCurrentAnimation = () => {
-            const key = controls.key
-            const active = key[0] !== 0 || key[1] !== 0
-            const newAnim = active ? (key[2] ? 'run' : 'walk') : 'idle'
+    //     const updateCurrentAnimation = () => {
+    //         const key = controls.key
+    //         const active = key[0] !== 0 || key[1] !== 0
+    //         const newAnim = active ? (key[2] ? 'run' : 'walk') : 'idle'
             
-            if (controls.current !== newAnim && !controls.jumping) {
-                controls.current = newAnim
-                playAnimation(newAnim)
-            }
-        }
+    //         if (controls.current !== newAnim && !controls.jumping) {
+    //             controls.current = newAnim
+    //             playAnimation(newAnim)
+    //         }
+    //     }
         
-        document.addEventListener('keydown', onKeyDown)
-        document.addEventListener('keyup', onKeyUp)
+    //     document.addEventListener('keydown', onKeyDown)
+    //     document.addEventListener('keyup', onKeyUp)
         
-        return () => {
-            document.removeEventListener('keydown', onKeyDown)
-            document.removeEventListener('keyup', onKeyUp)
-        }
-    }, [actions, names])
+    //     return () => {
+    //         document.removeEventListener('keydown', onKeyDown)
+    //         document.removeEventListener('keyup', onKeyUp)
+    //     }
+    // }, [actions, names])
     
     // Function to play a specific animation
     const playAnimation = (animName) => {

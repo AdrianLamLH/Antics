@@ -14,6 +14,8 @@ export default function CharacterAI({
   const [autoMode, setAutoMode] = useState(false);
   const actionsTimeoutRef = useRef(null);
   const continuousModeRef = useRef(null);
+
+  const [currentUserMessage, setCurrentUserMessage] = useState("");
   
   // Create character controls
   const controls = useCallback(() => {
@@ -425,82 +427,102 @@ const stopContinuousMode = useCallback(() => {
     }
   }, []);
   
-  // Function to handle captured view
-  const handleCapturedView = useCallback(async (imageData) => {
-    console.log("handleCapturedView called, setting capturingView to false");
-    setCapturingView(false);
-    
-    console.log("Image captured, sending to API");
-    
-    if (!imageData) {
-      console.error("No image data received");
-      if (autoMode) {
-        console.log("Auto mode on, scheduling next capture after error");
-        scheduleNextCapture();
-      }
+  // Modify the triggerViewCapture to accept an optional user message
+  const triggerViewCapture = useCallback((userMessage = "") => {
+    if (capturingView || executing) {
+      console.warn("Already capturing view or executing actions");
       return;
     }
     
-    // Get available control methods
-    const controlMethods = Object.keys(controls());
+    // Store the user message
+    setCurrentUserMessage(userMessage);
     
-    // Send to API and get AI response
+    // Set capturing view to true
+    console.log(`Setting capturing view to true with message: "${userMessage}"`);
+    setCapturingView(true);
+  }, [capturingView, executing]);
+  
+  const executeAIActions = useCallback(async (actions) => {
+    console.log("Executing actions:", actions);
+    
+    // Process actions sequentially with optimizations for dramatic movement
+    const characterControls = controls();
+    let totalExecutionTime = 0;
+    
+    // Optimize the action sequence for more dramatic movement
+    const optimizedActions = optimizeActionSequence(actions);
+    console.log("Optimized actions for dramatic movement:", optimizedActions);
+    
+    // Scale delay times to make movements snappier
+    optimizedActions.forEach(action => {
+      // Reduce delays for more responsive, dramatic movement
+      action.delay = Math.floor(action.delay * 0.8);
+    });
+    
+    // Execute the optimized actions
+    for (const action of optimizedActions) {
+      await new Promise(resolve => {
+        actionsTimeoutRef.current = setTimeout(async () => {
+          const { type, value, delay } = action;
+          console.log(`Executing dramatic action: ${type}(${value})`);
+          
+          if (characterControls[type]) {
+            await characterControls[type](value);
+          } else {
+            console.warn(`Unknown action type: ${type}`);
+          }
+          totalExecutionTime += delay || 500;
+          resolve();
+        }, action.delay || 400); // Use slightly reduced delays for snappier movement
+      });
+    }
+    
+    console.log(`Completed dramatic action sequence in ${totalExecutionTime}ms`);
+  }, [controls, optimizeActionSequence]);
+
+
+  // Update the handleCapturedView function to include the user message
+  const handleCapturedView = useCallback(async (imageData) => {
+    console.log("View captured, setting capturing view to false");
+    setCapturingView(false);
+    
     try {
-      console.log("Setting executing to true");
-      setExecuting(true); // Set executing to true before API request
+      // Prepare control methods array for AI
+      const controlMethods = Object.keys(controls());
       
-      const aiResult = await requestAIActions(imageData, controlMethods);
+      console.log("Setting executing to true");
+      setExecuting(true);
+      
+      // Pass the user message along with the image data
+      const aiResult = await requestAIActions(
+        imageData,
+        controlMethods,
+        currentUserMessage // Pass the current user message
+      );
+      
       console.log("Received AI response:", aiResult);
       setAiResponse(aiResult);
       
-      // Execute the returned actions
+      // Execute AI actions if any
       if (aiResult.actions && aiResult.actions.length > 0) {
-        console.log("Executing actions:", aiResult.actions);
-        
-        // Process actions sequentially with optimizations for dramatic movement
-        const characterControls = controls();
-        let totalExecutionTime = 0;
-        
-        // Optimize the action sequence for more dramatic movement
-        const optimizedActions = optimizeActionSequence(aiResult.actions);
-        console.log("Optimized actions for dramatic movement:", optimizedActions);
-        
-        // Scale delay times to make movements snappier
-        optimizedActions.forEach(action => {
-          // Reduce delays for more responsive, dramatic movement
-          action.delay = Math.floor(action.delay * 0.8);
-        });
-        
-        // Execute the optimized actions
-        for (const action of optimizedActions) {
-          await new Promise(resolve => {
-            actionsTimeoutRef.current = setTimeout(async () => {
-              const { type, value, delay } = action;
-              console.log(`Executing dramatic action: ${type}(${value})`);
-              
-              if (characterControls[type]) {
-                await characterControls[type](value);
-              } else {
-                console.warn(`Unknown action type: ${type}`);
-              }
-              totalExecutionTime += delay || 500;
-              resolve();
-            }, action.delay || 400); // Use slightly reduced delays for snappier movement
-          });
-        }
-        
-        console.log(`Completed dramatic action sequence in ${totalExecutionTime}ms`);
+        await executeAIActions(aiResult.actions);
       } else {
         console.warn("No actions received from AI");
       }
+      
+      // Clear the current user message after processing
+      setCurrentUserMessage("");
+      
     } catch (error) {
-      console.error("Error processing AI actions:", error);
+      console.error("Error handling captured view:", error);
+      setExecuting(false);
+      setCurrentUserMessage("");
     } finally {
       // Always set executing to false when done
       console.log("Setting executing to false in finally block");
       setExecuting(false);
       
-      // Schedule next capture if auto mode is on - THIS IS THE KEY PART
+      // Schedule next capture if auto mode is on
       if (autoMode) {
         console.log("Auto mode is on, scheduling next capture");
         // Small delay to ensure state is updated properly
@@ -511,20 +533,22 @@ const stopContinuousMode = useCallback(() => {
         console.log("Auto mode is off, not scheduling next capture");
       }
     }
-  }, [controls, scheduleNextCapture, autoMode, optimizeActionSequence]);
+  }, [controls, scheduleNextCapture, autoMode, optimizeActionSequence, currentUserMessage, executeAIActions]);
+
 
   // Notify parent component of state changes
   useEffect(() => {
     if (onStateChange) {
       onStateChange({
-        aiResponse,
+        aiResponse,  // Make sure this is included
         capturingView,
         executing,
         autoMode,
         toggleAutoMode,
-        triggerCapture: () => {
+        triggerCapture: (userMessage = "") => {
           if (!capturingView && !executing) {
             console.log("triggerCapture called from parent");
+            setCurrentUserMessage(userMessage);  // Store the message
             setCapturingView(true);
           }
         }
@@ -554,26 +578,6 @@ const stopContinuousMode = useCallback(() => {
       setCapturingView(true);
     }
   }, [autoMode, capturingView, executing]);
-
-  // Toggle between first and third person views
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key === 'c' || e.key === 'C') {
-        // Manually capture view
-        if (!capturingView && !executing) {
-          console.log("Capturing view triggered by key press");
-          setCapturingView(true);
-        }
-      } else if (e.key === 'p' || e.key === 'P') {
-        // Toggle auto mode
-        console.log("Auto mode toggle triggered by key press");
-        toggleAutoMode();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [capturingView, executing, toggleAutoMode]);
 
   // Return the component
   return (

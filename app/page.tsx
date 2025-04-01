@@ -9,6 +9,7 @@ import BaseMap from '../components/BaseMap'
 import Character from "../components/Character";
 import CharacterAI from "../components/CharacterAI";
 import AIResponseDisplay from "../components/AIResponseDisplay";
+import ChatInterface from "../components/ChatInterface";
 import { ViewToggleButton, AIActionButton } from "../components/ActionButtons";
 
 export default function Home() {
@@ -23,8 +24,45 @@ export default function Home() {
   const [triggerCapture, setTriggerCapture] = useState(() => () => {});
   const [toggleAutoMode, setToggleAutoMode] = useState(() => () => {});
   
+
+  const [userMessage, setUserMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState([]);
+  const [characterAttributes, setCharacterAttributes] = useState({
+    personality: 'Friendly and curious',
+    biography: 'An AI explorer discovering this virtual world',
+    attributes: [
+      { name: 'Health', value: 100, max: 100 },
+      { name: 'Energy', value: 100, max: 100 }
+    ],
+    customActions: []
+  });
+
+  const handleSendMessage = useCallback(async (message) => {
+    if (!message.trim()) return;
+    
+    // Add user message to chat history
+    setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
+    
+    // Clear input field
+    setUserMessage("");
+    
+    // If not already capturing view, trigger a view capture
+    // This will send the current view to the AI along with the user's message
+    if (!capturingView && !executing) {
+      // We'll modify triggerCapture to accept a message parameter
+      triggerCapture(message);
+    } else {
+      console.warn("Already processing a request, please wait");
+    }
+  }, [capturingView, executing, triggerCapture]);
+
+
   // Handle state changes from CharacterAI component
   const handleAIStateChange = useCallback((state) => {
+    // Store previous response to check if it's new
+    const previousResponse = aiResponse;
+    
+    // Update state from CharacterAI component
     setAiResponse(state.aiResponse);
     setCapturingView(state.capturingView);
     setExecuting(state.executing);
@@ -33,7 +71,17 @@ export default function Home() {
     if (state.toggleAutoMode) {
       setToggleAutoMode(() => state.toggleAutoMode);
     }
-  }, []);
+    
+    // If there's a new AI response with speech, add it to chat history
+    if (state.aiResponse && 
+        state.aiResponse.speech && 
+        (!previousResponse || previousResponse.speech !== state.aiResponse.speech)) {
+      setChatHistory(prev => [...prev, { 
+        sender: 'ai', 
+        text: state.aiResponse.speech 
+      }]);
+    }
+  }, [aiResponse]);
   
   // Check if character is out of bounds
   useEffect(() => {
@@ -59,54 +107,53 @@ export default function Home() {
     return () => clearInterval(checkPosition);
   }, []);
 
-  // Toggle between first and third person views
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      console.log("Key pressed:", e.key);
+  // // Toggle between first and third person views
+  // useEffect(() => {
+  //   const handleKeyPress = (e) => {
+  //     console.log("Key pressed:", e.key);
       
-      if (e.key === 'v' || e.key === 'V') {
-        console.log("View toggle requested");
-        setIsFirstPerson(prev => !prev);
-      }
-      else if ((e.key === 'c' || e.key === 'C')) {
-        console.log("Manual AI capture requested via key");
-        if (!capturingView && !executing) {
-          triggerCapture();
-        } else {
-          console.warn("Already capturing or executing, ignoring request");
-        }
-      }
-      else if ((e.key === 'p' || e.key === 'P')) {
-        console.log("Auto mode toggle requested via key");
-        toggleAutoMode();
-      }
-    };
+  //     if (e.key === 'v' || e.key === 'V') {
+  //       console.log("View toggle requested");
+  //       setIsFirstPerson(prev => !prev);
+  //     }
+  //     else if ((e.key === 'c' || e.key === 'C')) {
+  //       console.log("Manual AI capture requested via key");
+  //       if (!capturingView && !executing) {
+  //         triggerCapture();
+  //       } else {
+  //         console.warn("Already capturing or executing, ignoring request");
+  //       }
+  //     }
+  //     else if ((e.key === 'p' || e.key === 'P')) {
+  //       console.log("Auto mode toggle requested via key");
+  //       toggleAutoMode();
+  //     }
+  //   };
   
-    // Use keydown for immediate response
-    window.addEventListener('keydown', handleKeyPress);
-    console.log("Key event listeners attached");
+  //   // Use keydown for immediate response
+  //   window.addEventListener('keydown', handleKeyPress);
+  //   console.log("Key event listeners attached");
     
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-      console.log("Key event listeners removed");
-    };
-  }, [capturingView, executing, triggerCapture, toggleAutoMode]);
+  //   return () => {
+  //     window.removeEventListener('keydown', handleKeyPress);
+  //     console.log("Key event listeners removed");
+  //   };
+  // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
 
   return (
     <div className="w-full h-screen">
-      {/* UI Components */}
+      {/* View toggle button */}
       <ViewToggleButton 
         isFirstPerson={isFirstPerson}
         toggleView={() => setIsFirstPerson(prev => !prev)}
       />
       
-      {/* // Update the UI components section to allow buttons in third-person view */}
       <div className="absolute top-16 right-4 z-10 flex flex-col gap-2">
         <AIActionButton 
-          isFirstPerson={true} // Always show this button by passing true
+          isFirstPerson={true}
           capturingView={capturingView}
           executing={executing}
-          triggerCapture={triggerCapture}
+          triggerCapture={() => triggerCapture()} // No message, just observation
         />
         
         <button 
@@ -121,12 +168,22 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Instructions */}
+      {/* Add Chat Interface */}
+      <ChatInterface 
+        onSendMessage={handleSendMessage}
+        userMessage={userMessage}
+        setUserMessage={setUserMessage}
+        chatHistory={chatHistory}
+        aiResponse={aiResponse}
+        capturingView={capturingView}
+        executing={executing}
+      />
+
+      {/* Update instructions to remove key press references */}
       <div className="absolute bottom-4 right-4 z-10 bg-black bg-opacity-70 text-white p-3 rounded-md max-w-xs">
         <h3 className="font-bold mb-1">Controls</h3>
-        <p className="text-sm">Press <span className="font-mono bg-gray-700 px-1 rounded">V</span> to toggle view</p>
-        <p className="text-sm">Press <span className="font-mono bg-gray-700 px-1 rounded">C</span> for single action</p>
-        <p className="text-sm">Press <span className="font-mono bg-gray-700 px-1 rounded">P</span> to toggle auto mode</p>
+        <p className="text-sm">Use the buttons above to control the AI</p>
+        <p className="text-sm">Chat with the AI using the message box</p>
       </div>
       
       <AIResponseDisplay aiResponse={aiResponse} />

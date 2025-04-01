@@ -1,5 +1,4 @@
-// Update the requestAIActions function to include character configuration
-export async function requestAIActions(imageData, controlMethods, characterConfig = null) {
+export async function requestAIActions(imageData, controlMethods, userMessage = "") {
   try {
     const response = await fetch('/api/ai-character', {
       method: 'POST',
@@ -9,7 +8,7 @@ export async function requestAIActions(imageData, controlMethods, characterConfi
       body: JSON.stringify({
         image: imageData,
         controls: controlMethods,
-        characterConfig: characterConfig // Pass the configuration
+        userMessage: userMessage // Pass the user message
       }),
     });
 

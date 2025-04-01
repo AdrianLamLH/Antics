@@ -1,12 +1,18 @@
 export async function POST(req) {
     try {
-      const { image, controls, characterConfig } = await req.json();
+      const { image, controls, userMessage } = await req.json();
       
       console.log("Received request with controls:", controls);
       
       // Build the AI prompt based on character configuration
       let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.`;
       
+      const characterConfig = {
+        personality: 'Friendly and curious',
+        biography: 'Midoriya from My Hero Academia in the virtual world',
+        customActions: []
+      };
+
       // Add personality and biography if provided
       if (characterConfig) {
         if (characterConfig.personality) {
@@ -26,6 +32,7 @@ export async function POST(req) {
         }
       }
       
+      
       characterPrompt += `\n\nWhen the user messages you:
 1. Respond conversationally as if you're a character in this world
 2. If they ask you to do something or move somewhere, include DRAMATIC and BOLD movement instructions
@@ -39,28 +46,44 @@ MOVEMENT GUIDELINES:
 - Combine movements in flowing, cinematic sequences
 - Think like a parkour artist or action movie character`;
 
-      // Add reference to custom actions if available
-      if (characterConfig && characterConfig.customActions && characterConfig.customActions.length > 0) {
-        characterPrompt += `\n\nSPECIAL ACTIONS AVAILABLE:`;
-        characterConfig.customActions.forEach(action => {
-          characterPrompt += `\n- ${action.name}: ${action.description}`;
-        });
-      }
+        if (characterConfig && characterConfig.customActions && characterConfig.customActions.length > 0) {
+            characterPrompt += `\n\nSPECIAL ACTIONS AVAILABLE:`;
+            characterConfig.customActions.forEach(action => {
+            characterPrompt += `\n- ${action.name}: ${action.description}`;
+            });
+        }
 
-      characterPrompt += `\n\nThe format of your movement instructions is critical - follow it exactly:
+        // Add user message to the prompt if available
+        if (userMessage && userMessage.trim()) {
+            characterPrompt += `\n\nThe user has just said to you: "${userMessage}"`;
+        }
 
-THOUGHT: Brief internal thought about the user's request
-SPEECH: Your conversational response to the user
-ACTIONS:
-moveForward 8 1000
-turn 0.7 500
-jump 20 800
-wait 300 300
+        characterPrompt += `\n\nThe format of your movement instructions is critical - follow it exactly:
 
-Only include ACTIONS if the user is requesting movement or actions. 
-When the user is just chatting, only include THOUGHT and SPEECH sections.
-Each action must be on its own line with the format: actionType value delay`;
+        THOUGHT: Brief internal thought about the user's request
+        SPEECH: Your conversational response to the user
+        ACTIONS:
+        moveForward 8 1000
+        turn 0.7 500
+        jump 20 800
+        wait 300 300
 
+        Only include ACTIONS if the user is requesting movement or actions. 
+        When the user is just chatting, only include THOUGHT and SPEECH sections.
+        Each action must be on its own line with the format: actionType value delay`;
+
+        // Log the full prompt sent to the LLM
+        console.log("=== FULL PROMPT TO LLM ===");
+        console.log(characterPrompt);
+        console.log("=== END PROMPT ===");
+        
+        // Also log the user message if available - Fixed here
+        if (userMessage) {
+            console.log("User message:", userMessage);
+        }
+
+
+      
       // Call Claude API with the image
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
