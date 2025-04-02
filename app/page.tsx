@@ -200,7 +200,7 @@ export default function Home() {
         <p className="text-sm">Chat with the AI using the message box</p>
       </div>
       
-      <AIResponseDisplay aiResponse={aiResponse} />
+      {/* <AIResponseDisplay aiResponse={aiResponse} /> */}
       
       <Canvas shadows>
         {/* Default third-person camera */}
@@ -247,7 +247,8 @@ export default function Home() {
                 <Character 
                   position={[0,0,0]} 
                   bodyRef={characterBodyRef} 
-                  currentAnimation={currentAnimation} // Pass the current animation
+                  currentAnimation={currentAnimation}
+                  aiResponse={aiResponse}  // Pass the AI response to the Character
                 />
               </Suspense>
               <CuboidCollider 
@@ -259,11 +260,11 @@ export default function Home() {
             {/* Only show OrbitControls in third-person view */}
             {!isFirstPerson && <OrbitControls />}
             
-            <RigidBody type="fixed" colliders={"hull"}>
-              <BaseMap position={[0,-25,0]}/>
+            <RigidBody type="fixed" colliders={"trimesh"}>
+              <BaseMap position={[2,-10,0]}/>
             </RigidBody>
           </Physics>
-          <Environment preset="sunset" background />
+          <Environment files="jen_napo.jpeg" background />
         </Suspense>
       </Canvas>
     </div>

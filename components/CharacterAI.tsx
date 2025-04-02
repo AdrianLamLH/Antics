@@ -1,6 +1,8 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import ViewCapture from './ViewCapture';
 import { requestAIActions } from '../utils/aiService';
+import * as THREE from 'three'; // Add this import
+
 
 export default function CharacterAI({ 
   characterBodyRef, 
@@ -27,11 +29,10 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Moving forward ${steps} steps`);
         
-        // Apply stronger impulse for dramatic movement
-        // For very large steps, break it into multiple impulses
-        const maxSingleImpulse = 8;
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 8 or higher
         const impulseStrength = Math.min(steps, maxSingleImpulse);
-        const initialImpulse = { x: 0, y: 0, z: -impulseStrength };
+        const initialImpulse = { x: 0, y: 0, z: -impulseStrength * 0.7 }; // Reduced force
         
         // Apply primary impulse
         characterBodyRef.current.applyImpulse(initialImpulse, true);
@@ -41,36 +42,21 @@ export default function CharacterAI({
           return new Promise(resolve => {
             const remainingStrength = steps - maxSingleImpulse;
             
-            // Apply a second impulse after a short delay
+            // Apply a second impulse after a longer delay
             setTimeout(() => {
               if (characterBodyRef.current) {
                 const followUpImpulse = { 
                   x: 0, 
                   y: 0, 
-                  z: -Math.min(remainingStrength, maxSingleImpulse) 
+                  z: -Math.min(remainingStrength, maxSingleImpulse) * 0.7 // Reduced force
                 };
                 characterBodyRef.current.applyImpulse(followUpImpulse, true);
                 
-                // If still more distance to cover, apply a third impulse
-                if (remainingStrength > maxSingleImpulse) {
-                  setTimeout(() => {
-                    if (characterBodyRef.current) {
-                      const finalImpulse = { 
-                        x: 0, 
-                        y: 0, 
-                        z: -(remainingStrength - maxSingleImpulse) 
-                      };
-                      characterBodyRef.current.applyImpulse(finalImpulse, true);
-                    }
-                    resolve();
-                  }, 200);
-                } else {
-                  resolve();
-                }
+                resolve();
               } else {
                 resolve();
               }
-            }, 200);
+            }, 400); // Longer delay (was 100-200)
           });
         }
         
@@ -80,29 +66,12 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Moving backward ${steps} steps`);
         
-        // Apply stronger impulse for dramatic movement
-        const maxSingleImpulse = 8;
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 8 or higher
         const impulseStrength = Math.min(steps, maxSingleImpulse);
-        const impulse = { x: 0, y: 0, z: impulseStrength };
+        const impulse = { x: 0, y: 0, z: impulseStrength * 0.7 }; // Reduced force
         
         characterBodyRef.current.applyImpulse(impulse, true);
-        
-        // For larger movements, apply follow-up impulse
-        if (steps > maxSingleImpulse) {
-          return new Promise(resolve => {
-            setTimeout(() => {
-              if (characterBodyRef.current) {
-                const followUpImpulse = { 
-                  x: 0, 
-                  y: 0, 
-                  z: steps - maxSingleImpulse 
-                };
-                characterBodyRef.current.applyImpulse(followUpImpulse, true);
-              }
-              resolve();
-            }, 200);
-          });
-        }
         
         return Promise.resolve();
       },
@@ -110,29 +79,12 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Moving left ${steps} steps`);
         
-        // Apply stronger impulse for dramatic movement
-        const maxSingleImpulse = 6;
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 6 or higher
         const impulseStrength = Math.min(steps, maxSingleImpulse);
-        const impulse = { x: -impulseStrength, y: 0, z: 0 };
+        const impulse = { x: -impulseStrength * 0.7, y: 0, z: 0 }; // Reduced force
         
         characterBodyRef.current.applyImpulse(impulse, true);
-        
-        // For larger movements, apply follow-up impulse
-        if (steps > maxSingleImpulse) {
-          return new Promise(resolve => {
-            setTimeout(() => {
-              if (characterBodyRef.current) {
-                const followUpImpulse = { 
-                  x: -(steps - maxSingleImpulse), 
-                  y: 0, 
-                  z: 0 
-                };
-                characterBodyRef.current.applyImpulse(followUpImpulse, true);
-              }
-              resolve();
-            }, 200);
-          });
-        }
         
         return Promise.resolve();
       },
@@ -140,29 +92,12 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Moving right ${steps} steps`);
         
-        // Apply stronger impulse for dramatic movement
-        const maxSingleImpulse = 6;
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 6 or higher
         const impulseStrength = Math.min(steps, maxSingleImpulse);
-        const impulse = { x: impulseStrength, y: 0, z: 0 };
+        const impulse = { x: impulseStrength * 0.7, y: 0, z: 0 }; // Reduced force
         
         characterBodyRef.current.applyImpulse(impulse, true);
-        
-        // For larger movements, apply follow-up impulse
-        if (steps > maxSingleImpulse) {
-          return new Promise(resolve => {
-            setTimeout(() => {
-              if (characterBodyRef.current) {
-                const followUpImpulse = { 
-                  x: steps - maxSingleImpulse, 
-                  y: 0, 
-                  z: 0 
-                };
-                characterBodyRef.current.applyImpulse(followUpImpulse, true);
-              }
-              resolve();
-            }, 200);
-          });
-        }
         
         return Promise.resolve();
       },
@@ -170,9 +105,8 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Turning ${angle} radians`);
         
-        // More dramatic turns, but still keep them controlled
-        // If angle is large, break it into multiple smaller turns
-        const maxSingleTurn = 0.8;
+        // More controlled turns
+        const maxSingleTurn = 0.4; // Reduced from 0.8
         
         if (Math.abs(angle) > maxSingleTurn) {
           // Break into multiple turns for smoother large rotations
@@ -196,7 +130,7 @@ export default function CharacterAI({
                 w: currentRotation.w
               }, true);
               
-              setTimeout(() => applyTurn(step + 1), 100);
+              setTimeout(() => applyTurn(step + 1), 200); // Longer delay
             };
             
             // Start the sequential turns
@@ -212,86 +146,33 @@ export default function CharacterAI({
             w: currentRotation.w
           }, true);
           
-          return Promise.resolve();
+          // Return a promise that resolves after a delay
+          return new Promise(resolve => setTimeout(resolve, 400)); // Longer delay
         }
       },
-      jump: (height = 15) => {
+      jump: (height = 10) => { // Reduced default height
         if (!characterBodyRef.current) return;
         console.log("Jumping with height", height);
         
-        // Enhanced dramatic jump
-        // Higher jumps with optional horizontal momentum
-        const actualHeight = Math.min(height, 15); // Ensure minimum height of 15
+        // More controlled jump with reduced height
+        const actualHeight = Math.max(height, 10); // Reduced minimum height
         
-        // Add slight horizontal momentum based on character's current facing direction
-        const currentRotation = characterBodyRef.current.rotation();
-        const yRotation = currentRotation.y;
-        
-        // Calculate forward direction based on rotation
-        const forwardX = Math.sin(yRotation);
-        const forwardZ = -Math.cos(yRotation);
-        
-        // Apply a more dramatic jump impulse with forward momentum
+        // Apply a more controlled jump impulse
         const impulse = { 
-          x: forwardX * 2,  // Small horizontal momentum in facing direction
-          y: actualHeight,  // Vertical jump force
-          z: forwardZ * 2   // Small horizontal momentum in facing direction
+          x: 0,  // No horizontal momentum
+          y: actualHeight * 0.8,  // Reduced height
+          z: 0   // No horizontal momentum
         };
         
         characterBodyRef.current.applyImpulse(impulse, true);
-        
-        // For very high jumps, add some spin for dramatic effect
-        if (height > 20) {
-          setTimeout(() => {
-            if (characterBodyRef.current) {
-              // Add slight angular velocity for a spin effect during high jumps
-              characterBodyRef.current.setAngvel({ 
-                x: 0, 
-                y: 0.5, // Spin around y-axis
-                z: 0 
-              }, true);
-            }
-          }, 100);
-        }
         
         return Promise.resolve();
       },
       wait: (duration) => {
         console.log(`Waiting for ${duration}ms`);
         
-        // Dynamic waiting - for longer waits, add slight movement
-        const limitedDuration = Math.min(duration, 3000);
-        
-        if (limitedDuration > 1000 && characterBodyRef.current) {
-          // For longer waits, add a subtle look-around motion
-          setTimeout(() => {
-            if (characterBodyRef.current) {
-              const currentRotation = characterBodyRef.current.rotation();
-              characterBodyRef.current.setRotation({
-                x: currentRotation.x,
-                y: currentRotation.y + 0.2, // Small turn
-                z: currentRotation.z,
-                w: currentRotation.w
-              }, true);
-              
-              // Turn back after a short delay
-              setTimeout(() => {
-                if (characterBodyRef.current) {
-                  const newRotation = characterBodyRef.current.rotation();
-                  characterBodyRef.current.setRotation({
-                    x: newRotation.x,
-                    y: newRotation.y - 0.2, // Return to original orientation
-                    z: newRotation.z,
-                    w: newRotation.w
-                  }, true);
-                }
-              }, limitedDuration / 2);
-            }
-          }, 300);
-        }
-        
-        // Return promise that resolves after the full wait time
-        return new Promise(resolve => setTimeout(resolve, limitedDuration));
+        // Keep the wait duration as is, or even increase it for slower overall movement
+        return new Promise(resolve => setTimeout(resolve, duration));
       }
     };
   }, [characterBodyRef]);
@@ -301,24 +182,30 @@ export default function CharacterAI({
     
     const optimized = [...actions];
     
-    // Enhance jump actions by adding forward momentum
+    // Enhance all movement actions to be faster and more dramatic
     for (let i = 0; i < optimized.length; i++) {
-      // If this is a jump and followed by a moveForward, combine them
-      if (optimized[i].type === 'jump' && 
-          i + 1 < optimized.length && 
-          optimized[i + 1].type === 'moveForward') {
-        
-        // Increase jump height for more drama
-        optimized[i].value = Math.max(optimized[i].value, 20);
-        
-        // Increase the forward movement that follows
-        optimized[i + 1].value = Math.max(optimized[i + 1].value, 8);
+      // Make all movements more dramatic
+      if (optimized[i].type.includes('move')) {
+        // Increase movement values by 50-100%
+        optimized[i].value = optimized[i].value * 2;
       }
       
-      // Make all turns more dramatic
+      // Make turns more dramatic
       if (optimized[i].type === 'turn') {
-        // Increase turn angle by 20% for more drama, preserving direction
-        optimized[i].value = optimized[i].value * 1.2;
+        // Increase turn angle by 30% for more drama
+        optimized[i].value = optimized[i].value * 1.3;
+      }
+      
+      // Enhance jumps
+      if (optimized[i].type === 'jump') {
+        // Higher jumps
+        optimized[i].value = Math.max(optimized[i].value * 1.5, 25);
+      }
+      
+      // Shorten delays for faster actions
+      if (optimized[i].delay) {
+        // Reduce delays by 30% for snappier movements
+        optimized[i].delay = Math.floor(optimized[i].delay * 0.7);
       }
     }
     
@@ -337,6 +224,7 @@ export default function CharacterAI({
     // Clear any existing timeout
     if (continuousModeRef.current) {
       clearTimeout(continuousModeRef.current);
+      continuousModeRef.current = null;
     }
     
     // Set a new timeout
@@ -348,10 +236,7 @@ export default function CharacterAI({
       } else {
         console.log("System busy, trying again in 1 second");
         // Try again in 1 second
-        if (continuousModeRef.current) {
-          clearTimeout(continuousModeRef.current);
-        }
-        continuousModeRef.current = setTimeout(() => {
+        setTimeout(() => {
           console.log("Retry timeout fired");
           scheduleNextCapture(); // This will try again
         }, 1000);
@@ -361,42 +246,146 @@ export default function CharacterAI({
     console.log("Next capture scheduled with ID:", continuousModeRef.current);
   }, [autoMode, capturingView, executing]);
 
-  // Toggle continuous mode
-  const toggleAutoMode = useCallback(() => {
-    console.log("Toggle auto mode function called");
-    setAutoMode(prev => {
-      const newMode = !prev;
-      console.log("Auto mode changing to:", newMode);
+
+  const [autoModeInterval, setAutoModeInterval] = useState(null);
+
+  const [actionCounter, setActionCounter] = useState(0);
+const [actionThreshold, setActionThreshold] = useState(5); // Call LLM every 5-6 actions
+
+// Define preset generic actions for when we don't call the LLM
+const genericActions = useCallback(() => {
+  // Create an array of preset action sequences
+  const actions = [
+    // Walking around sequence
+    [
+      { type: 'moveForward', value: 10, delay: 1200 },
+      { type: 'turn', value: 0.5, delay: 800 },
+      { type: 'moveForward', value: 8, delay: 1000 },
+      { type: 'wait', value: 500, delay: 500 },
+      { type: 'turn', value: -0.3, delay: 600 },
+      { type: 'moveForward', value: 6, delay: 900 },
+    ],
+    // Look around sequence
+    [
+      { type: 'turn', value: 0.7, delay: 800 },
+      { type: 'wait', value: 800, delay: 800 },
+      { type: 'turn', value: -0.4, delay: 600 },
+      { type: 'wait', value: 500, delay: 500 },
+      { type: 'turn', value: -0.5, delay: 700 },
+      { type: 'wait', value: 600, delay: 600 },
+    ],
+    // Jump and move sequence
+    [
+      { type: 'jump', value: 18, delay: 1000 },
+      { type: 'moveForward', value: 8, delay: 800 },
+      { type: 'turn', value: 0.3, delay: 500 },
+      { type: 'moveForward', value: 6, delay: 700 },
+    ],
+    // Idle and look sequence
+    [
+      { type: 'wait', value: 1000, delay: 1000 },
+      { type: 'turn', value: 0.4, delay: 600 },
+      { type: 'wait', value: 800, delay: 800 },
+      { type: 'turn', value: -0.6, delay: 700 },
+      { type: 'wait', value: 600, delay: 600 },
+    ],
+    // Explore sequence
+    [
+      { type: 'moveForward', value: 7, delay: 900 },
+      { type: 'moveLeft', value: 5, delay: 700 },
+      { type: 'turn', value: -0.3, delay: 500 },
+      { type: 'moveForward', value: 9, delay: 1100 },
+      { type: 'turn', value: 0.5, delay: 700 },
+    ],
+  ];
+  
+  // Return a random action sequence
+  return actions[Math.floor(Math.random() * actions.length)];
+}, []);
+
+// Modify toggleAutoMode to randomize the threshold
+const toggleAutoMode = useCallback(() => {
+  console.log("Toggle auto mode called");
+  
+  setAutoMode(prevAutoMode => {
+    const newAutoMode = !prevAutoMode;
+    console.log("Auto mode changing to:", newAutoMode);
+    
+    // Clear any existing timers regardless of state change
+    if (autoModeInterval) {
+      console.log("Clearing existing interval:", autoModeInterval);
+      clearInterval(autoModeInterval);
+      setAutoModeInterval(null);
+    }
+    
+    if (continuousModeRef.current) {
+      console.log("Clearing existing timeout:", continuousModeRef.current);
+      clearTimeout(continuousModeRef.current);
+      continuousModeRef.current = null;
+    }
+    
+    // If turning on auto mode, set up a new interval
+    if (newAutoMode) {
+      console.log("Setting up new auto mode interval");
       
-      if (newMode) {
-        // Start continuous mode
-        console.log("Starting continuous mode");
-        if (continuousModeRef.current) {
-          clearTimeout(continuousModeRef.current);
-        }
-        
-        // Trigger the first capture if not already busy
-        if (!capturingView && !executing) {
-          console.log("Auto mode enabled, triggering first capture");
-          setTimeout(() => setCapturingView(true), 100);
-        } else {
-          // If busy, schedule for later
-          console.log("System busy, scheduling first auto capture");
-          setTimeout(() => {
-            scheduleNextCapture();
-          }, 1000);
-        }
-      } else {
-        // Stop continuous mode
-        console.log("Stopping continuous mode");
-        if (continuousModeRef.current) {
-          clearTimeout(continuousModeRef.current);
-          continuousModeRef.current = null;
-        }
+      // Reset action counter
+      setActionCounter(0);
+      
+      // Randomize the threshold (5-6 actions)
+      setActionThreshold(Math.floor(5 + Math.random() * 2));
+      
+      // Trigger first capture immediately if not busy
+      if (!capturingView && !executing) {
+        console.log("Triggering initial capture");
+        setCapturingView(true);
       }
-      return newMode;
-    });
-  }, [capturingView, executing, scheduleNextCapture]);
+      
+      // Use an interval to check every second if we can trigger a new action
+      const interval = setInterval(() => {
+        console.log("Auto mode interval check - capturing:", capturingView, "executing:", executing);
+        
+        if (!capturingView && !executing) {
+          // Increment the action counter
+          setActionCounter(prevCounter => {
+            const newCounter = prevCounter + 1;
+            console.log(`Action counter: ${newCounter}/${actionThreshold}`);
+            
+            // If we've reached the threshold, trigger LLM
+            if (newCounter >= actionThreshold) {
+              console.log("Counter reached threshold, triggering LLM capture");
+              setCapturingView(true);
+              
+              // Reset counter and randomize next threshold
+              return 0;
+            } else {
+              // Otherwise execute generic actions
+              console.log("Using generic actions");
+              executeGenericActions();
+              return newCounter;
+            }
+          });
+        } else {
+          console.log("System busy, skipping this interval check");
+        }
+      }, 8000); // Check every 8 seconds
+      
+      setAutoModeInterval(interval);
+      console.log("Auto mode interval set:", interval);
+    }
+    
+    return newAutoMode;
+  });
+}, [capturingView, executing]);
+
+  useEffect(() => {
+    return () => {
+      // Clean up interval on component unmount
+      if (autoModeInterval) {
+        console.log("Component unmounting, clearing interval");
+        clearInterval(autoModeInterval);
+      }
+    };
+  }, [autoModeInterval]);
 
   // Define the startContinuousMode function
   const startContinuousMode = useCallback(() => {
@@ -458,10 +447,10 @@ const stopContinuousMode = useCallback(() => {
     
     // Scale delay times to make movements snappier
     optimizedActions.forEach(action => {
-      // Reduce delays for more responsive, dramatic movement
-      action.delay = Math.floor(action.delay * 0.8);
+      // Reduce delays by 50% for much more responsive, dramatic movement
+      action.delay = Math.floor(action.delay * 0.5);
     });
-    
+        
     // Helper function to set appropriate animation
     const setAnimationForAction = (actionType, value) => {
       switch(actionType) {
@@ -511,9 +500,9 @@ const stopContinuousMode = useCallback(() => {
           } else {
             console.warn(`Unknown action type: ${type}`);
           }
-          totalExecutionTime += delay || 500;
+          totalExecutionTime += delay || 300;
           resolve();
-        }, action.delay || 400); // Use slightly reduced delays for snappier movement
+        }, action.delay || 300); // Use slightly reduced delays for snappier movement
       });
       
       // Wait a bit after jumping before changing animation
@@ -529,59 +518,127 @@ const stopContinuousMode = useCallback(() => {
   }, [controls, optimizeActionSequence]);
 
 
-  // Update the handleCapturedView function to include the user message
-  const handleCapturedView = useCallback(async (imageData) => {
-    console.log("View captured, setting capturing view to false");
-    setCapturingView(false);
+  // Add a function to execute generic actions
+const executeGenericActions = useCallback(async () => {
+  console.log("Executing generic action sequence");
+  setExecuting(true);
+  
+  try {
+    // Get a random generic action sequence
+    const actions = genericActions();
+    console.log("Selected generic actions:", actions);
     
-    try {
-      // Prepare control methods array for AI
-      const controlMethods = Object.keys(controls());
-      
-      console.log("Setting executing to true");
-      setExecuting(true);
-      
-      // Pass the user message along with the image data
-      const aiResult = await requestAIActions(
-        imageData,
-        controlMethods,
-        currentUserMessage // Pass the current user message
-      );
-      
-      console.log("Received AI response:", aiResult);
-      setAiResponse(aiResult);
-      
-      // Execute AI actions if any
-      if (aiResult.actions && aiResult.actions.length > 0) {
-        await executeAIActions(aiResult.actions);
-      } else {
-        console.warn("No actions received from AI");
-      }
-      
-      // Clear the current user message after processing
-      setCurrentUserMessage("");
-      
-    } catch (error) {
-      console.error("Error handling captured view:", error);
-      setExecuting(false);
-      setCurrentUserMessage("");
-    } finally {
-      // Always set executing to false when done
-      console.log("Setting executing to false in finally block");
-      setExecuting(false);
-      
-      // Schedule next capture if auto mode is on
-      if (autoMode) {
-        console.log("Auto mode is on, scheduling next capture");
-        // Small delay to ensure state is updated properly
-        setTimeout(() => {
-          scheduleNextCapture();
-        }, 100);
-      } else {
-        console.log("Auto mode is off, not scheduling next capture");
-      }
+    // Execute the generic actions
+    await executeAIActions(actions);
+    
+  } catch (error) {
+    console.error("Error executing generic actions:", error);
+  } finally {
+    setExecuting(false);
+  }
+}, [executeAIActions, genericActions]);
+
+// Add state to keep track of message history
+const [messageHistory, setMessageHistory] = useState([]);
+const maxHistoryLength = 3; // Keep last 3 interactions for context
+
+// Modify the handleCapturedView function to include message history
+const handleCapturedView = useCallback(async (imageData) => {
+  console.log("View captured, setting capturing view to false");
+  setCapturingView(false);
+  
+  try {
+    // Prepare control methods array for AI
+    const controlMethods = Object.keys(controls());
+    
+    console.log("Setting executing to true");
+    setExecuting(true);
+    
+    // Create a summary of previous interactions
+    let contextSummary = "";
+    if (messageHistory.length > 0) {
+      contextSummary = "Previous interactions:\n";
+      messageHistory.forEach((item, index) => {
+        if (item.userMessage) {
+          contextSummary += `User said: "${item.userMessage}"\n`;
+        }
+        if (item.aiResponse && item.aiResponse.speech) {
+          contextSummary += `You responded: "${item.aiResponse.speech}"\n`;
+        }
+        if (item.aiResponse && item.aiResponse.thought) {
+          contextSummary += `You thought: "${item.aiResponse.thought}"\n`;
+        }
+        if (item.actions) {
+          const actionSummary = item.actions.map(a => a.type).join(", ");
+          contextSummary += `You performed actions: ${actionSummary}\n`;
+        }
+        if (index < messageHistory.length - 1) {
+          contextSummary += "---\n";
+        }
+      });
     }
-  }, [controls, scheduleNextCapture, autoMode, optimizeActionSequence, currentUserMessage, executeAIActions]);
+    
+    console.log("Context summary for API call:", contextSummary);
+    
+    // Pass the user message, context summary, and the image data
+    const aiResult = await requestAIActions(
+      imageData,
+      controlMethods,
+      currentUserMessage, // Current user message
+      contextSummary // Previous interaction summary
+    );
+    
+    console.log("Received AI response:", aiResult);
+    setAiResponse(aiResult);
+    
+    // Update message history with new interaction
+    setMessageHistory(prev => {
+      // Create new history item
+      const newItem = {
+        userMessage: currentUserMessage,
+        aiResponse: {
+          thought: aiResult.thought,
+          speech: aiResult.speech
+        },
+        actions: aiResult.actions
+      };
+      
+      // Add to history and limit length
+      const updatedHistory = [...prev, newItem].slice(-maxHistoryLength);
+      return updatedHistory;
+    });
+    
+    // Execute AI actions if any
+    if (aiResult.actions && aiResult.actions.length > 0) {
+      await executeAIActions(aiResult.actions);
+    } else {
+      console.warn("No actions received from AI");
+    }
+    
+    // Clear the current user message after processing
+    setCurrentUserMessage("");
+    
+  } catch (error) {
+    console.error("Error handling captured view:", error);
+    setExecuting(false);
+    setCurrentUserMessage("");
+  } finally {
+    // Always set executing to false when done
+    console.log("Setting executing to false in finally block");
+    setExecuting(false);
+    
+    // Schedule next capture if auto mode is on
+    if (autoMode) {
+      console.log("Auto mode is on, scheduling next capture");
+      // Small delay to ensure state is updated properly
+      setTimeout(() => {
+        scheduleNextCapture();
+      }, 100);
+    } else {
+      console.log("Auto mode is off, not scheduling next capture");
+    }
+  }
+}, [controls, scheduleNextCapture, autoMode, optimizeActionSequence, currentUserMessage, executeAIActions, messageHistory]);
 
 
   // Notify parent component of state changes
@@ -617,6 +674,37 @@ const stopContinuousMode = useCallback(() => {
     };
   }, []);
 
+  useEffect(() => {
+    // When auto mode is turned on, ensure there's an active timeout
+    if (autoMode && !executing && !capturingView) {
+      console.log("Auto mode monitoring: Ensuring continuous loop is active");
+      
+      // Only schedule if we don't already have an active timeout
+      if (!continuousModeRef.current) {
+        console.log("No active auto mode timeout found, scheduling a new one");
+        scheduleNextCapture();
+      } else {
+        console.log("Auto mode timeout already active:", continuousModeRef.current);
+      }
+    }
+    
+    // Clean up when auto mode is turned off
+    if (!autoMode && continuousModeRef.current) {
+      console.log("Auto mode turned off, clearing timeout");
+      clearTimeout(continuousModeRef.current);
+      continuousModeRef.current = null;
+    }
+    
+    // When component unmounts or dependencies change
+    return () => {
+      if (continuousModeRef.current) {
+        console.log("Cleaning up auto mode timeout");
+        clearTimeout(continuousModeRef.current);
+        continuousModeRef.current = null;
+      }
+    };
+  }, [autoMode, executing, capturingView, scheduleNextCapture]);
+
   // Specifically monitor auto mode changes
   useEffect(() => {
     console.log("Auto mode state changed to:", autoMode);
@@ -625,6 +713,11 @@ const stopContinuousMode = useCallback(() => {
     if (autoMode && !continuousModeRef.current && !capturingView && !executing) {
       console.log("Auto mode ON: No existing schedule, starting now");
       setCapturingView(true);
+    }
+    // Important: make sure when autoMode turns off, it clears the timeout
+    if (!autoMode && continuousModeRef.current) {
+      clearTimeout(continuousModeRef.current);
+      continuousModeRef.current = null;
     }
   }, [autoMode, capturingView, executing]);
 

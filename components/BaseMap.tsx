@@ -2,7 +2,7 @@ import React, { useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 
 export default function BaseMap(props) {
-  const { scene } = useGLTF('/island_map.glb')
+  const { scene } = useGLTF('/beach_map.glb')
   return (
     <primitive
       object={scene}
@@ -11,4 +11,4 @@ export default function BaseMap(props) {
   )
 }
 
-useGLTF.preload('/island_map.glb')
+useGLTF.preload('/beach_map.glb')

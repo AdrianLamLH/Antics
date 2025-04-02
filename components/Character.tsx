@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react'
-import { useGLTF, useAnimations } from '@react-three/drei'
+import { useGLTF, useAnimations, Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
-export default function Character({ bodyRef, currentAnimation = 'idle', ...props }) {
+export default function Character({ bodyRef, currentAnimation = 'idle', aiResponse = null, ...props }) {
     const group = useRef(null)
-    const { scene, animations } = useGLTF('/midoriya.glb')
+    const { scene, animations } = useGLTF('/jinx.glb')
     const { actions, names } = useAnimations(animations, group)
     const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
@@ -29,33 +29,41 @@ export default function Character({ bodyRef, currentAnimation = 'idle', ...props
     
     // Handle movement in every frame
     useFrame(() => {
-        if (!bodyRef.current) return
+        if (!bodyRef.current) return;
         
-        // If any movement keys are pressed
-        if (controls.key[0] !== 0 || controls.key[1] !== 0) {
-            // Calculate movement speed (faster when running)
-            const speed = controls.key[2] ? controls.velocity * 2 : controls.velocity
+        // Get current velocity and position
+        const velocity = bodyRef.current.linvel();
+        const position = bodyRef.current.translation();
+        
+        // Only update rotation if we're actually moving
+        const horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        
+        if (horizontalSpeed > 0.5) { // Only rotate if moving fast enough
+            // Calculate direction based on velocity
+            const targetRotation = Math.atan2(velocity.x, -velocity.z); // Note the negative z for correct facing
             
-            // Calculate movement direction vector
-            controls.direction.set(controls.key[1], 0, controls.key[0])
-            controls.direction.normalize().multiplyScalar(speed)
+            // Apply rotation to match movement direction
+            const currentRotation = bodyRef.current.rotation();
+            const euler = new THREE.Euler().setFromQuaternion(
+                new THREE.Quaternion(currentRotation.x, currentRotation.y, currentRotation.z, currentRotation.w)
+            );
             
-            // Apply movement impulse to RigidBody
-            bodyRef.current.applyImpulse({
-                x: controls.direction.x,
-                y: 0,
-                z: controls.direction.z
-            }, true)
+            // Smoothly interpolate to the target rotation (lerp)
+            const newY = THREE.MathUtils.lerp(
+                euler.y,
+                targetRotation,
+                0.1 // Adjust this value for smoother/faster rotation
+            );
             
-            // Rotate character to face movement direction
-            if (controls.direction.length() > 0) {
-                const angle = Math.atan2(controls.direction.x, controls.direction.z)
-                const currentRotation = new THREE.Quaternion()
-                currentRotation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), angle)
-                bodyRef.current.setRotation(currentRotation, true)
-            }
+            // Apply the new rotation
+            bodyRef.current.setRotation({
+                x: 0,
+                y: newY,
+                z: 0,
+                w: currentRotation.w
+            }, true);
         }
-    })
+    });
     
     // Set up keyboard controls
     // useEffect(() => {
@@ -167,13 +175,19 @@ export default function Character({ bodyRef, currentAnimation = 'idle', ...props
     }, [actions, names]);
     
     return (
-        <group ref={group} position={props.position} onClick={(e) => {
-            e.stopPropagation()
-            handleJump()
-        }}>
+        <group ref={group} position={props.position}>
             <primitive object={scene} />
+            
+            {/* Speech bubble for AI responses */}
+            {aiResponse && aiResponse.speech && (
+                <Html position={[0, 6, 0]} center distanceFactor={10}>
+                    <div className="bg-black bg-opacity-70 p-2 rounded-lg shadow-md text-white text-sm w-48 max-h-32 overflow-y-auto">
+                        {aiResponse.speech}
+                    </div>
+                </Html>
+            )}
         </group>
     )
 }
 
-useGLTF.preload('/midoriya.glb')
+useGLTF.preload('/jinx.glb')
