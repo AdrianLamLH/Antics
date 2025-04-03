@@ -7,7 +7,8 @@ export default function ChatInterface({
   chatHistory,
   aiResponse,
   capturingView,
-  executing
+  executing,
+  characterId = "character1" // Add characterId prop with default
 }) {
   const chatEndRef = useRef(null);
   
@@ -24,39 +25,49 @@ export default function ChatInterface({
     onSendMessage(userMessage);
   };
 
+  // Get the color for the character messages
+  const getCharacterColor = (sender) => {
+    if (sender === 'user') return 'bg-blue-800 bg-opacity-50 ml-8';
+    if (sender === 'character1') return 'bg-purple-800 bg-opacity-50 mr-8';
+    if (sender === 'character2') return 'bg-green-800 bg-opacity-50 mr-8';
+    return 'bg-gray-800 bg-opacity-50 mr-8'; // Default
+  };
+  
+  // Get the character name for display
+  const getSenderName = (sender) => {
+    if (sender === 'user') return 'You';
+    if (sender === 'character1') return 'Character 1';
+    if (sender === 'character2') return 'Character 2';
+    return sender === 'ai' && characterId === 'character2' ? 'Character 2' : 'Character 1';
+  };
+
   return (
-    <div className="absolute bottom-20 left-4 z-10 w-96 max-w-[calc(100vw-2rem)]">
-      <div className="bg-black bg-opacity-70 rounded-t-md p-3 max-h-60 overflow-y-auto">
-        <div className="space-y-2">
-          {/* Display chat history */}
-          {chatHistory.map((msg, index) => (
-            <div key={index} className={`px-2 py-1 rounded ${
-              msg.sender === 'user' 
-                ? 'bg-blue-800 bg-opacity-50 ml-8' 
-                : 'bg-gray-800 bg-opacity-50 mr-8'
-            }`}>
-              <p className="text-sm text-gray-300">
-                {msg.sender === 'user' ? 'You' : 'AI Character'}:
-              </p>
-              <p className="text-white">{msg.text}</p>
-            </div>
-          ))}
-          
-          {/* Display latest AI response if not in history */}
-          {aiResponse && aiResponse.speech && (
-            <div className="bg-gray-800 bg-opacity-50 px-2 py-1 rounded mr-8">
-              <p className="text-sm text-gray-300">AI Character:</p>
-              <p className="text-white">{aiResponse.speech}</p>
-            </div>
-          )}
-          
-          {/* Auto-scroll anchor */}
-          <div ref={chatEndRef} />
-        </div>
+    <div className="bg-black bg-opacity-70 rounded-md p-3 max-h-60 overflow-y-auto w-full">
+      <div className="space-y-2">
+        {/* Display chat history */}
+        {chatHistory.map((msg, index) => (
+          <div key={index} className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}>
+            <p className="text-sm text-gray-300">
+              {getSenderName(msg.sender)}:
+            </p>
+            <p className="text-white">{msg.text}</p>
+          </div>
+        ))}
+        
+        {/* Display latest AI response if not in history */}
+        {aiResponse && aiResponse.speech && (
+          <div className={`px-2 py-1 rounded ${getCharacterColor(characterId)}`}>
+            <p className="text-sm text-gray-300">{getSenderName(characterId)}:</p>
+            <p className="text-white">{aiResponse.speech}</p>
+          </div>
+        )}
+        
+        {/* Auto-scroll anchor */}
+        <div ref={chatEndRef} />
       </div>
       
       {/* Chat input form */}
-      <form onSubmit={handleSubmit} className="flex bg-black bg-opacity-70 rounded-b-md overflow-hidden">
+      <form onSubmit={handleSubmit} className="flex bg-black bg-opacity-70 rounded-b-md overflow-hidden mt-2">
         <input
           type="text"
           value={userMessage}

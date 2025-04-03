@@ -3,9 +3,9 @@ import { useGLTF, useAnimations, Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
-export default function Character({ bodyRef, currentAnimation = 'idle', aiResponse = null, ...props }) {
+export default function Character({ bodyRef, currentAnimation = 'idle', aiResponse = null, modelPath = '/midoriya.glb', ...props }) {
     const group = useRef(null)
-    const { scene, animations } = useGLTF('/jinx.glb')
+    const { scene, animations } = useGLTF(modelPath)
     const { actions, names } = useAnimations(animations, group)
     const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
@@ -190,4 +190,4 @@ export default function Character({ bodyRef, currentAnimation = 'idle', aiRespon
     )
 }
 
-useGLTF.preload('/jinx.glb')
+useGLTF.preload('/midoriya.glb')

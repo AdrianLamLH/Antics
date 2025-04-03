@@ -2,17 +2,17 @@ export async function POST(req) {
   try {
     const { image, controls, userMessage, contextSummary } = await req.json();
     
-    console.log("Received request with controls:", controls);
-    
-    // Build the AI prompt based on character configuration
-    let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.`;
-    
     const characterConfig = {
       personality: 'Friendly and curious',
       biography: 'Midoriya from My Hero Academia in the virtual world',
       customActions: []
     };
 
+    console.log("Received request with controls:", controls);
+    
+    // Build the AI prompt based on character configuration
+    let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.`;
+    
     // Add personality and biography if provided
     if (characterConfig) {
       if (characterConfig.personality) {
@@ -37,51 +37,38 @@ export async function POST(req) {
 
     characterPrompt += `\n\nYou can perform these actions: ${controls.join(', ')}`;
 
-    characterPrompt += `\n\nMOVEMENT GUIDELINES:
-- Create BIG, DRAMATIC movements using larger distances (5-15 units)
-- Use bold, expressive turns (0.5-1.2 radians)
-- Make jumps high and dynamic (15-25 height units)
-- Combine movements in flowing, cinematic sequences
-- Think like a parkour artist or action movie character`;
+    characterPrompt += `\n\nMOVEMENT PATTERN GUIDELINES:
+- When asked to walk forward/backward/left/right in a straight line, only use the corresponding movement action repeatedly without turns
+- Only include turns when specifically asked to change direction or create patterns
+- For simple movements, use 2-3 actions of the same type with different distances
+- Example of walking forward in a straight line:
+  moveForward 10 800
+  moveForward 8 700
+  moveForward 12 900`;
 
-characterPrompt += `\n\nSPECIAL MOVEMENT PATTERNS:
-- CIRCLE: To run in a perfect circle, use this exact pattern:
-  moveForward 5 400
-  turn 0.785 300  (This is exactly 45 degrees or π/4 radians)
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300  (Complete 360 degree circle)
+  // Later in your action processing code, add special handling for simple movement requests
+  // Moved this code after parsing the AI response and creating the aiResponse object
+  // Now, after aiResponse has been initialized and populated, check for simple movement patterns
+  if (userMessage && 
+    (userMessage.toLowerCase().match(/^(walk|move|go) (forward|forwards|ahead|straight)/i) ||
+     userMessage.toLowerCase().match(/^(walk|move|go) (backward|backwards|back)/i) ||
+     userMessage.toLowerCase().match(/^(walk|move|go) (left|right)/i))) {
+  
+    console.log("Simple directional movement detected, ensuring straight-line pattern");
+  
+    // Determine direction
+    const direction = 
+      userMessage.toLowerCase().includes('forward') || 
+      userMessage.toLowerCase().includes('forwards') || 
+      userMessage.toLowerCase().includes('ahead') || 
+      userMessage.toLowerCase().includes('straight') ? 'moveForward' :
+      userMessage.toLowerCase().includes('backward') || 
+      userMessage.toLowerCase().includes('backwards') || 
+      userMessage.toLowerCase().includes('back') ? 'moveBackward' :
+      userMessage.toLowerCase().includes('left') ? 'moveLeft' : 'moveRight';
 
-- SPIRAL: For an expanding spiral, gradually increase the forward distance:
-  moveForward 3 400
-  turn 0.785 300
-  moveForward 4 400
-  turn 0.785 300
-  moveForward 5 400
-  turn 0.785 300
-  moveForward 6 400
-  turn 0.785 300
-  (and so on)
-
-When a user asks you to run in a circle, use the EXACT circle pattern above. When asked to run in a spiral, use the spiral pattern.`;
-
-// Add specific handling for circle and spiral requests
-characterPrompt += `\n\nIMPORTANT HANDLING INSTRUCTIONS:
-- If the user mentions "circle", "run around", "go around", or "spin around", use the EXACT circle pattern provided above
-- If the user mentions "spiral", use the spiral pattern
-- For complex paths, break them down into segments of forward movements and precise turns
-- Running in a "circle" requires 8 segments with 45-degree turns to make a proper circle`;
+  }
+  
 
     // Add reference to custom actions if available
     if (characterConfig && characterConfig.customActions && characterConfig.customActions.length > 0) {
@@ -190,7 +177,11 @@ Each action must be on its own line with the format: actionType value delay`;
     console.log("Claude text response:", fullText);
     
     // Parse the plaintext format
-    const aiResponse = {};
+    const aiResponse = {
+      thought: "",
+      speech: "",
+      actions: []
+    };
     
     // Extract thought
     const thoughtMatch = fullText.match(/THOUGHT:(.+?)(?=SPEECH:|$)/s);
@@ -259,9 +250,32 @@ Each action must be on its own line with the format: actionType value delay`;
         }
       });
     }
+    // // NOW aiResponse.actions exists, so this will work
+    // const filteredActions = aiResponse.actions.filter(action => 
+    //   action.type === direction || action.type === 'jump' || action.type === 'wait'
+    // );
+  
+    // // If we removed turn actions, make sure we still have enough movement actions
+    // if (filteredActions.length < 3) {
+    //   // Add additional movement actions to ensure a good sequence
+    //   const distances = [15, 12, 18];
+    //   const delays = [1000, 800, 1200];
     
-    // If no valid actions were parsed or too few actions, use fallback
-    if (aiResponse.actions.length < 8) {
+    //   for (let i = filteredActions.length; i < 3; i++) {
+    //     filteredActions.push({
+    //       type: direction,
+    //       value: distances[i % distances.length],
+    //       delay: delays[i % delays.length]
+    //     });
+    //   }
+    // }
+  
+    // // Replace the actions with filtered ones
+    // aiResponse.actions = filteredActions;
+  
+    // console.log("Ensuring straight-line pattern with actions:", 
+    //   filteredActions.map(a => `${a.type}(${a.value})`).join(', '));
+    if (aiResponse.actions.length < 3) {
       console.log("Enhancing movement pattern with additional forward movements");
       
       // Add more forward movement to make it longer

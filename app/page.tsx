@@ -12,10 +12,17 @@ import AIResponseDisplay from "../components/AIResponseDisplay";
 import ChatInterface from "../components/ChatInterface";
 import { ViewToggleButton, AIActionButton } from "../components/ActionButtons";
 
+import FlatFloor from '../components/FlatFloor';
+import BoundaryWalls from '../components/BoundaryWalls';
+
+import { ScreenshotButton } from "../components/ActionButtons";
+import ScreenshotCapture from "../components/ScreenshotCapture";
+
+
 export default function Home() {
   const characterBodyRef = useRef(null);
   const startPosition = [0, 5, 0]; // Store initial position for reset
-  const fallThreshold = -20; // Reset character if Y position is below this value
+  const fallThreshold = -100; // Reset character if Y position is below this value
   const [isFirstPerson, setIsFirstPerson] = useState(false);
   const [aiResponse, setAiResponse] = useState(null);
   const [capturingView, setCapturingView] = useState(false);
@@ -24,7 +31,23 @@ export default function Home() {
   const [triggerCapture, setTriggerCapture] = useState(() => () => {});
   const [toggleAutoMode, setToggleAutoMode] = useState(() => () => {});
   
+  // Add state for second character
+  const character2BodyRef = useRef(null);
+  const [character2AiResponse, setCharacter2AiResponse] = useState(null);
+  const [character2CapturingView, setCharacter2CapturingView] = useState(false);
+  const [character2Executing, setCharacter2Executing] = useState(false);
+  const [character2AutoMode, setCharacter2AutoMode] = useState(false);
+  const [character2Animation, setCharacter2Animation] = useState('idle');
+  const [triggerCapture2, setTriggerCapture2] = useState(() => () => {});
+  const [toggleAutoMode2, setToggleAutoMode2] = useState(() => () => {});
+  const [character2UserMessage, setCharacter2UserMessage] = useState("");
+
+  // Shared conversation history between characters
+  const [sharedConversation, setSharedConversation] = useState([]);
+
   const [currentAnimation, setCurrentAnimation] = useState('idle');
+
+  const [viewMode, setViewMode] = useState('thirdPerson'); // 'thirdPerson', 'firstPerson1', or 'firstPerson2'
 
   const [userMessage, setUserMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
@@ -38,64 +61,137 @@ export default function Home() {
     customActions: []
   });
 
+  // Add these new states
+  const [captureChar1Screenshot, setCaptureChar1Screenshot] = useState(false);
+  const [captureChar2Screenshot, setCaptureChar2Screenshot] = useState(false);
+  
+
+  // Add screenshot trigger functions
+  const triggerChar1Screenshot = useCallback(() => {
+    console.log("Triggering Character 1 screenshot");
+    setCaptureChar1Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+  }, []);
+  
+  const triggerChar2Screenshot = useCallback(() => {
+    console.log("Triggering Character 2 screenshot");
+    setCaptureChar2Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+  }, []);
+
+  // Update the view toggle function
+  const toggleView = () => {
+    setViewMode(current => {
+      switch(current) {
+        case 'thirdPerson': return 'firstPerson1';
+        case 'firstPerson1': return 'firstPerson2';
+        case 'firstPerson2': return 'thirdPerson';
+        default: return 'thirdPerson';
+      }
+    });
+  };
+
   const handleSendMessage = useCallback(async (message) => {
     if (!message.trim()) return;
     
-    // Add user message to chat history
+    // Add user message to chat history and shared conversation
     setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
+    setSharedConversation(prev => [...prev, { 
+      sender: 'user', 
+      target: 'character1',
+      text: message,
+      timestamp: Date.now()
+    }]);
     
     // Clear input field
     setUserMessage("");
     
-    // If not already capturing view, trigger a view capture
-    // This will send the current view to the AI along with the user's message
+    // Trigger view capture
     if (!capturingView && !executing) {
-      // We'll modify triggerCapture to accept a message parameter
       triggerCapture(message);
     } else {
       console.warn("Already processing a request, please wait");
     }
   }, [capturingView, executing, triggerCapture]);
 
-
-  // Handle state changes from CharacterAI component
-  const handleAIStateChange = useCallback((state) => {
-    // Store previous response to check if it's new
-    const previousResponse = aiResponse;
+  // Handler for sending messages to character 2
+  const handleSendMessage2 = useCallback(async (message) => {
+    if (!message.trim()) return;
     
-    // Update state from CharacterAI component
+    // Add user message to shared conversation
+    setSharedConversation(prev => [...prev, { 
+      sender: 'user', 
+      target: 'character2',
+      text: message,
+      timestamp: Date.now()
+    }]);
+    
+    // Clear input field
+    setCharacter2UserMessage("");
+    
+    // If not already capturing view, trigger a view capture
+    if (!character2CapturingView && !character2Executing) {
+      triggerCapture2(message);
+    } else {
+      console.warn("Character 2 is busy, please wait");
+    }
+  }, [character2CapturingView, character2Executing, triggerCapture2]);
+
+  // Modify the existing handleAIStateChange function
+  const handleAIStateChange = useCallback((state) => {
     setAiResponse(state.aiResponse);
     setCapturingView(state.capturingView);
     setExecuting(state.executing);
     setAutoMode(state.autoMode || false);
+    setCurrentAnimation(state.currentAnimation || 'idle');
+    
     setTriggerCapture(() => state.triggerCapture);
-    
-    // Update current animation if provided
-    if (state.currentAnimation) {
-      setCurrentAnimation(state.currentAnimation);
-    }
-    
     if (state.toggleAutoMode) {
       setToggleAutoMode(() => state.toggleAutoMode);
     }
-
     
-    // If there's a new AI response with speech, add it to chat history
+    // Add AI response to shared conversation
     if (state.aiResponse && state.aiResponse.speech) {
-      const aiSpeech = state.aiResponse.speech;
+      setSharedConversation(prev => [...prev, {
+        sender: 'character1',
+        text: state.aiResponse.speech,
+        timestamp: Date.now()
+      }]);
       
-      // Check the last message in chat history to avoid duplication
-      const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
-      
-      // Only add to chat history if it's not already the last message
-      if (!lastMessage || lastMessage.sender !== 'ai' || lastMessage.text !== aiSpeech) {
-        setChatHistory(prev => [...prev, { 
-          sender: 'ai', 
-          text: aiSpeech 
-        }]);
-      }
+      // Also update chat history if you're using that
+      setChatHistory(prev => {
+        const lastMessage = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (!lastMessage || lastMessage.sender !== 'ai' || lastMessage.text !== state.aiResponse.speech) {
+          return [...prev, { 
+            sender: 'ai', 
+            text: state.aiResponse.speech 
+          }];
+        }
+        return prev;
+      });
     }
-  }, [chatHistory]);
+  }, []);
+
+  // Handle state changes from second CharacterAI component
+  const handleAI2StateChange = useCallback((state) => {
+    setCharacter2AiResponse(state.aiResponse);
+    setCharacter2CapturingView(state.capturingView);
+    setCharacter2Executing(state.executing);
+    setCharacter2AutoMode(state.autoMode || false);
+    setCharacter2Animation(state.currentAnimation || 'idle');
+    
+    setTriggerCapture2(() => state.triggerCapture);
+    if (state.toggleAutoMode) {
+      setToggleAutoMode2(() => state.toggleAutoMode);
+    }
+    
+    // Add AI response to shared conversation
+    if (state.aiResponse && state.aiResponse.speech) {
+      setSharedConversation(prev => [...prev, {
+        sender: 'character2',
+        text: state.aiResponse.speech,
+        timestamp: Date.now()
+      }]);
+    }
+  }, []);
   
   // Check if character is out of bounds
   useEffect(() => {
@@ -158,11 +254,21 @@ export default function Home() {
     <div className="w-full h-screen">
       {/* View toggle button */}
       <ViewToggleButton 
-        isFirstPerson={isFirstPerson}
-        toggleView={() => setIsFirstPerson(prev => !prev)}
+        viewMode={viewMode}
+        toggleView={toggleView}
       />
+
+    <div className="absolute top-16 right-4 z-10 bg-black bg-opacity-70 text-white p-2 rounded-md">
+      {viewMode === 'thirdPerson' 
+        ? "Third Person View" 
+        : viewMode === 'firstPerson1' 
+          ? "Character 1 Perspective" 
+          : "Character 2 Perspective"}
+    </div>
+
+
       
-      <div className="absolute top-16 right-4 z-10 flex flex-col gap-2">
+      {/* <div className="absolute top-16 right-4 z-10 flex flex-col gap-2">
         <AIActionButton 
           isFirstPerson={true}
           capturingView={capturingView}
@@ -180,18 +286,96 @@ export default function Home() {
         >
           {autoMode ? "Auto Mode: ON" : "Auto Mode: OFF"}
         </button>
-      </div>
+      </div> */}
 
-      {/* Add Chat Interface */}
-      <ChatInterface 
-        onSendMessage={handleSendMessage}
-        userMessage={userMessage}
-        setUserMessage={setUserMessage}
-        chatHistory={chatHistory}
-        aiResponse={aiResponse}
-        capturingView={capturingView}
-        executing={executing}
-      />
+      {/* Add UI for dual chat interfaces */}
+      <div className="absolute bottom-20 left-4 z-10 grid grid-cols-2 gap-4 w-3/4 max-w-4xl">
+        {/* Character 1 Chat Interface */}
+        <div>
+          <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 1</h3>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 mt-2">
+              <AIActionButton 
+                isFirstPerson={false}
+                capturingView={capturingView}
+                executing={executing}
+                triggerCapture={() => triggerCapture()} // No message, just observation
+              />
+              
+              <button 
+                className={`px-4 py-2 rounded-md ${
+                  autoMode 
+                    ? "bg-green-600 hover:bg-green-700" 
+                    : "bg-black bg-opacity-70 hover:bg-opacity-80"
+                } text-white`}
+                onClick={toggleAutoMode}
+              >
+                {autoMode ? "Auto Mode: ON" : "Auto Mode: OFF"}
+              </button>
+              {/* Add screenshot button */}
+              <ScreenshotButton 
+                onClick={triggerChar1Screenshot} 
+                characterId="character1" 
+              />
+            </div>
+            
+            <ChatInterface 
+              onSendMessage={handleSendMessage}
+              userMessage={userMessage}
+              setUserMessage={setUserMessage}
+              chatHistory={chatHistory}
+              aiResponse={aiResponse}
+              capturingView={capturingView}
+              executing={executing}
+              characterId="character1"
+            />
+          </div>
+        </div>
+        
+        {/* Character 2 Chat Interface */}
+        <div>
+          <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 2</h3>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 mt-2">
+              <AIActionButton 
+                isFirstPerson={false}
+                capturingView={character2CapturingView}
+                executing={character2Executing}
+                triggerCapture={() => triggerCapture2()} // No message, just observation
+              />
+              
+              <button 
+                className={`px-4 py-2 rounded-md ${
+                  character2AutoMode 
+                    ? "bg-green-600 hover:bg-green-700" 
+                    : "bg-black bg-opacity-70 hover:bg-opacity-80"
+                } text-white`}
+                onClick={toggleAutoMode2}
+              >
+                {character2AutoMode ? "Auto Mode: ON" : "Auto Mode: OFF"}
+              </button>
+              {/* Add screenshot button */}
+              <ScreenshotButton 
+                onClick={triggerChar2Screenshot} 
+                characterId="character2" 
+              />
+            </div>
+            
+            <ChatInterface 
+              onSendMessage={handleSendMessage2}
+              userMessage={character2UserMessage}
+              setUserMessage={setCharacter2UserMessage}
+              chatHistory={sharedConversation.filter(msg => 
+                msg.sender === 'character2' || msg.target === 'character2'
+              )}
+              aiResponse={character2AiResponse}
+              capturingView={character2CapturingView}
+              executing={character2Executing}
+              characterId="character2"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Update instructions to remove key press references */}
       <div className="absolute bottom-4 right-4 z-10 bg-black bg-opacity-70 text-white p-3 rounded-md max-w-xs">
@@ -204,10 +388,10 @@ export default function Home() {
       
       <Canvas shadows>
         {/* Default third-person camera */}
-        {!isFirstPerson && (
+        {viewMode === 'thirdPerson' && (
           <PerspectiveCamera
             makeDefault
-            position={[-6, 7, 7]}
+            position={[-8, 6, 8]}
             fov={75}
           />
         )}
@@ -215,58 +399,122 @@ export default function Home() {
         <ambientLight color={"white"} intensity={0.3} />
         <LightBulb position={[0, 3, 0]} />
         <Suspense>
+          {/* Add OrbitControls only in third-person mode */}
+          {viewMode === 'thirdPerson' && <OrbitControls />}
           <Physics debug gravity={[0, -20, 0]}>
-            {/* Character Setup */}
-            <RigidBody
-              ref={characterBodyRef}
-              colliders={false}
-              restitution={0}
-              friction={0.5}
-              linearDamping={0.5}
-              angularDamping={100}
-              lockRotations={true}
-              position={startPosition}
+          {/* First Character Setup */}
+          <RigidBody
+            ref={characterBodyRef}
+            colliders={false}
+            restitution={0}
+            friction={1.0} // Increase
+            linearDamping={3.0} // Increase
+            angularDamping={100}
+            lockRotations={true}
+            position={startPosition}
+          >
+            <CharacterAI 
+              characterBodyRef={characterBodyRef}
+              isFirstPerson={viewMode === 'firstPerson1'}
+              onStateChange={handleAIStateChange}
+              sharedConversation={sharedConversation}
+              characterId="character1"
             >
-              <CharacterAI 
-                characterBodyRef={characterBodyRef}
-                isFirstPerson={isFirstPerson}
-                onStateChange={handleAIStateChange}
-              >
-                {/* First-person camera */}
-                {isFirstPerson && (
+              {/* First-person camera for character 1 */}
+              {viewMode === 'firstPerson1' && (
+                <>
                   <PerspectiveCamera
                     makeDefault
-                    position={[0.5, 3, 0]}
-                    rotation={[0, Math.PI, 0]}
-                    fov={100}
+                    position={[0, 2, 0.2]} // Position at eye level looking forward
+                    rotation={[0, Math.PI, 0]} // Rotate 180 degrees
+                    fov={90}
                   />
-                )}
-              </CharacterAI>
-              
-              <Suspense fallback={null}>
-                <Character 
-                  position={[0,0,0]} 
-                  bodyRef={characterBodyRef} 
-                  currentAnimation={currentAnimation}
-                  aiResponse={aiResponse}  // Pass the AI response to the Character
-                />
-              </Suspense>
-              <CuboidCollider 
-                args={[0.4, 1.45, 0.4]}
-                position={[0, 1.5, 0]}
+                  <ScreenshotCapture 
+                    characterId="character1" 
+                    viewMode={viewMode}
+                    triggerMode={captureChar1Screenshot}
+                  />
+                </>
+              )}
+            </CharacterAI>
+            
+            <Suspense fallback={null}>
+              <Character 
+                position={[0,0,0]} 
+                bodyRef={characterBodyRef} 
+                currentAnimation={currentAnimation}
+                aiResponse={aiResponse}
+                modelPath="/spiderman.glb"
               />
-            </RigidBody>
+            </Suspense>
+            <CuboidCollider 
+              args={[0.4, 1.45, 0.4]}
+              position={[0, 1.5, 0]}
+            />
+          </RigidBody>
+          
+          {/* Second Character Setup */}
+          <RigidBody
+            ref={character2BodyRef}
+            colliders={false}
+            restitution={0}
+            friction={1.0} // Increase
+            linearDamping={3.0} // Increase
+            angularDamping={100}
+            lockRotations={true}
+            position={[5, 1, 5]}
+          >
+            <CharacterAI 
+              characterBodyRef={character2BodyRef}
+              isFirstPerson={viewMode === 'firstPerson2'}
+              onStateChange={handleAI2StateChange}
+              sharedConversation={sharedConversation}
+              characterId="character2"
+            >
+              {/* First-person camera for character 2 */}
+              {viewMode === 'firstPerson2' && (
+                <>
+                  <PerspectiveCamera
+                    makeDefault
+                    position={[0, 2.8, 0.3]} // Position at eye level looking forward
+                    rotation={[0, Math.PI, 0]} // Rotate 180 degrees
+                    fov={90}
+                  />
+                  <ScreenshotCapture 
+                    characterId="character2" 
+                    viewMode={viewMode}
+                    triggerMode={captureChar2Screenshot}
+                  />
+                </>
+              )}
+            </CharacterAI>
             
-            {/* Only show OrbitControls in third-person view */}
-            {!isFirstPerson && <OrbitControls />}
-            
-            <RigidBody type="fixed" colliders={"trimesh"}>
-              <BaseMap position={[2,-10,0]}/>
-            </RigidBody>
-          </Physics>
-          <Environment files="jen_napo.jpeg" background />
-        </Suspense>
-      </Canvas>
+            <Suspense fallback={null}>
+              <Character 
+                position={[0,0,0]} 
+                bodyRef={character2BodyRef}
+                currentAnimation={character2Animation}
+                aiResponse={character2AiResponse}
+                modelPath="/midoriya.glb"
+                color="blue"
+              />
+            </Suspense>
+            <CuboidCollider 
+              args={[0.4, 1.45, 0.4]}
+              position={[0, 1.5, 0]}
+            />
+          </RigidBody>
+          
+          {/* Floor and boundary walls */}
+          <RigidBody type="fixed" colliders={"trimesh"} friction={0.7}>
+            {/* <FlatFloor position={[0, 0, 0]} /> */}
+            <BaseMap position={[0,-10,0]} />
+          </RigidBody>
+          <BoundaryWalls size={20} />
+        </Physics>
+        <Environment preset="sunset" background/>
+      </Suspense>
+    </Canvas>
     </div>
   );
 }
