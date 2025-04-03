@@ -29,165 +29,126 @@ export default function CharacterAI({
         if (!characterBodyRef.current) return;
         console.log(`Moving forward ${steps} steps`);
         
-        // Get the current rotation of the character
-        const currentRotation = characterBodyRef.current.rotation();
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 8 or higher
+        const impulseStrength = Math.min(steps, maxSingleImpulse);
+        const initialImpulse = { x: 0, y: 0, z: -impulseStrength * 0.7 }; // Reduced force
         
-        // Convert the quaternion rotation to a direction vector
-        const quaternion = new THREE.Quaternion(
-          currentRotation.x,
-          currentRotation.y,
-          currentRotation.z,
-          currentRotation.w
-        );
+        // Apply primary impulse
+        characterBodyRef.current.applyImpulse(initialImpulse, true);
         
-        // ISSUE: Check if we need to invert the direction
-        // Create a forward vector - INVERT THE Z AXIS DIRECTION
-        const forwardVec = new THREE.Vector3(0, 0, 1); // Changed from -1 to 1
+        // For larger movements, schedule follow-up impulses
+        if (steps > maxSingleImpulse) {
+          return new Promise(resolve => {
+            const remainingStrength = steps - maxSingleImpulse;
+            
+            // Apply a second impulse after a longer delay
+            setTimeout(() => {
+              if (characterBodyRef.current) {
+                const followUpImpulse = { 
+                  x: 0, 
+                  y: 0, 
+                  z: -Math.min(remainingStrength, maxSingleImpulse) * 0.7 // Reduced force
+                };
+                characterBodyRef.current.applyImpulse(followUpImpulse, true);
+                
+                resolve();
+              } else {
+                resolve();
+              }
+            }, 400); // Longer delay (was 100-200)
+          });
+        }
         
-        // Apply the rotation to the forward vector
-        forwardVec.applyQuaternion(quaternion);
-        
-        // Normalize to ensure consistent speed regardless of direction
-        forwardVec.normalize();
-        
-        const maxSingleImpulse = 10;
-        const impulseStrength = Math.min(steps, maxSingleImpulse) * 3;
-        
-        const impulse = { 
-          x: forwardVec.x * impulseStrength,
-          y: 0,
-          z: forwardVec.z * impulseStrength 
-        };
-        
-        console.log(`Applying forward impulse: x=${impulse.x}, z=${impulse.z}`);
-        characterBodyRef.current.applyImpulse(impulse, true);
-        
-        return new Promise(resolve => setTimeout(resolve, 600));
+        return Promise.resolve();
       },
       moveBackward: (steps) => {
         if (!characterBodyRef.current) return;
         console.log(`Moving backward ${steps} steps`);
         
-        const currentRotation = characterBodyRef.current.rotation();
-        const quaternion = new THREE.Quaternion(
-          currentRotation.x,
-          currentRotation.y,
-          currentRotation.z,
-          currentRotation.w
-        );
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 8 or higher
+        const impulseStrength = Math.min(steps, maxSingleImpulse);
+        const impulse = { x: 0, y: 0, z: impulseStrength * 0.7 }; // Reduced force
         
-        // UPDATED: invert the backward vector as well
-        const backwardVec = new THREE.Vector3(0, 0, -1); // Changed from 1 to -1
-        backwardVec.applyQuaternion(quaternion);
-        backwardVec.normalize();
-        
-        const maxSingleImpulse = 10;
-        const impulseStrength = Math.min(steps, maxSingleImpulse) * 3;
-        
-        const impulse = { 
-          x: backwardVec.x * impulseStrength,
-          y: 0,
-          z: backwardVec.z * impulseStrength 
-        };
-        
-        console.log(`Applying backward impulse: x=${impulse.x}, z=${impulse.z}`);
         characterBodyRef.current.applyImpulse(impulse, true);
         
-        return new Promise(resolve => setTimeout(resolve, 600));
+        return Promise.resolve();
       },
       moveLeft: (steps) => {
         if (!characterBodyRef.current) return;
         console.log(`Moving left ${steps} steps`);
         
-        const currentRotation = characterBodyRef.current.rotation();
-        const quaternion = new THREE.Quaternion(
-          currentRotation.x,
-          currentRotation.y,
-          currentRotation.z,
-          currentRotation.w
-        );
-        
-        const leftVec = new THREE.Vector3(-1, 0, 0);
-        leftVec.applyQuaternion(quaternion);
-        leftVec.normalize();
-        
-        // Increase impulse strength
-        const maxSingleImpulse = 10;
-        const impulseStrength = Math.min(steps, maxSingleImpulse) * 3;
-        
-        const impulse = { 
-          x: leftVec.x * impulseStrength,
-          y: 0,
-          z: leftVec.z * impulseStrength 
-        };
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 6 or higher
+        const impulseStrength = Math.min(steps, maxSingleImpulse);
+        const impulse = { x: -impulseStrength * 0.7, y: 0, z: 0 }; // Reduced force
         
         characterBodyRef.current.applyImpulse(impulse, true);
         
-        return new Promise(resolve => setTimeout(resolve, 600));
+        return Promise.resolve();
       },
       moveRight: (steps) => {
         if (!characterBodyRef.current) return;
         console.log(`Moving right ${steps} steps`);
         
-        const currentRotation = characterBodyRef.current.rotation();
-        const quaternion = new THREE.Quaternion(
-          currentRotation.x,
-          currentRotation.y,
-          currentRotation.z,
-          currentRotation.w
-        );
-        
-        const rightVec = new THREE.Vector3(1, 0, 0);
-        rightVec.applyQuaternion(quaternion);
-        rightVec.normalize();
-        
-        // Increase impulse strength
-        const maxSingleImpulse = 10;
-        const impulseStrength = Math.min(steps, maxSingleImpulse) * 3;
-        
-        const impulse = { 
-          x: rightVec.x * impulseStrength,
-          y: 0,
-          z: rightVec.z * impulseStrength 
-        };
+        // Reduce impulse strength for slower movement
+        const maxSingleImpulse = 4; // Reduced from 6 or higher
+        const impulseStrength = Math.min(steps, maxSingleImpulse);
+        const impulse = { x: impulseStrength * 0.7, y: 0, z: 0 }; // Reduced force
         
         characterBodyRef.current.applyImpulse(impulse, true);
         
-        return new Promise(resolve => setTimeout(resolve, 600));
+        return Promise.resolve();
       },
       turn: (angle) => {
         if (!characterBodyRef.current) return;
-        console.log(`Turning ${angle} radians (relative turn)`);
+        console.log(`Turning ${angle} radians`);
         
-        // Get current rotation as a quaternion
-        const currentRotation = characterBodyRef.current.rotation();
-        const currentQuat = new THREE.Quaternion(
-          currentRotation.x, 
-          currentRotation.y, 
-          currentRotation.z, 
-          currentRotation.w
-        );
+        // More controlled turns
+        const maxSingleTurn = 0.4; // Reduced from 0.8
         
-        // Create a quaternion for the relative rotation around Y axis
-        const turnQuat = new THREE.Quaternion().setFromAxisAngle(
-          new THREE.Vector3(0, 1, 0), 
-          angle
-        );
-        
-        // Apply the relative rotation by multiplying quaternions
-        // This properly combines rotations in 3D space
-        currentQuat.multiply(turnQuat);
-        
-        // Apply the new combined rotation
+        if (Math.abs(angle) > maxSingleTurn) {
+          // Break into multiple turns for smoother large rotations
+          return new Promise(resolve => {
+            const totalAngle = angle;
+            const steps = Math.ceil(Math.abs(totalAngle) / maxSingleTurn);
+            const anglePerStep = totalAngle / steps;
+            
+            // Function to apply sequential turns
+            const applyTurn = (step) => {
+              if (step >= steps || !characterBodyRef.current) {
+                resolve();
+                return;
+              }
+              
+              const currentRotation = characterBodyRef.current.rotation();
               characterBodyRef.current.setRotation({
-          x: currentQuat.x,
-          y: currentQuat.y,
-          z: currentQuat.z,
-          w: currentQuat.w
+                x: currentRotation.x,
+                y: currentRotation.y + anglePerStep,
+                z: currentRotation.z,
+                w: currentRotation.w
               }, true);
               
-        // Return a promise that resolves after a delay to ensure the turn completes
-        return new Promise(resolve => setTimeout(resolve, 400));
+              setTimeout(() => applyTurn(step + 1), 200); // Longer delay
+            };
+            
+            // Start the sequential turns
+            applyTurn(0);
+          });
+        } else {
+          // For smaller turns, just apply directly
+          const currentRotation = characterBodyRef.current.rotation();
+          characterBodyRef.current.setRotation({
+            x: currentRotation.x,
+            y: currentRotation.y + angle,
+            z: currentRotation.z,
+            w: currentRotation.w
+          }, true);
+          
+          // Return a promise that resolves after a delay
+          return new Promise(resolve => setTimeout(resolve, 400)); // Longer delay
+        }
       },
       jump: (height = 10) => { // Reduced default height
         if (!characterBodyRef.current) return;
@@ -343,7 +304,7 @@ const genericActions = useCallback(() => {
 }, []);
 
 // Modify toggleAutoMode to randomize the threshold
-  const toggleAutoMode = useCallback(() => {
+const toggleAutoMode = useCallback(() => {
   console.log("Toggle auto mode called");
   
   setAutoMode(prevAutoMode => {
@@ -357,9 +318,9 @@ const genericActions = useCallback(() => {
       setAutoModeInterval(null);
     }
     
-        if (continuousModeRef.current) {
+    if (continuousModeRef.current) {
       console.log("Clearing existing timeout:", continuousModeRef.current);
-          clearTimeout(continuousModeRef.current);
+      clearTimeout(continuousModeRef.current);
       continuousModeRef.current = null;
     }
     
@@ -516,18 +477,9 @@ const stopContinuousMode = useCallback(() => {
     };
     
     // Execute the optimized actions
+    // Execute the optimized actions
     for (const action of optimizedActions) {
       // Set animation based on action type
-      if (action.type === 'moveForward' || action.type === 'moveBackward') {
-        // Log the current rotation to debug direction issues
-        const currentRotation = characterBodyRef.current.rotation();
-        console.log('Current rotation before movement:', 
-          'x=', currentRotation.x, 
-          'y=', currentRotation.y, 
-          'z=', currentRotation.z, 
-          'w=', currentRotation.w
-        );
-      }
       if (action.type === 'moveForward' || action.type === 'moveBackward' || 
           action.type === 'moveLeft' || action.type === 'moveRight') {
         // Run for faster movements, walk for slower ones
@@ -591,17 +543,17 @@ const [messageHistory, setMessageHistory] = useState([]);
 const maxHistoryLength = 3; // Keep last 3 interactions for context
 
 // Modify the handleCapturedView function to include message history
-  const handleCapturedView = useCallback(async (imageData) => {
-    console.log("View captured, setting capturing view to false");
-    setCapturingView(false);
+const handleCapturedView = useCallback(async (imageData) => {
+  console.log("View captured, setting capturing view to false");
+  setCapturingView(false);
+  
+  try {
+    // Prepare control methods array for AI
+    const controlMethods = Object.keys(controls());
     
-    try {
-      // Prepare control methods array for AI
-      const controlMethods = Object.keys(controls());
-      
-      console.log("Setting executing to true");
-      setExecuting(true);
-      
+    console.log("Setting executing to true");
+    setExecuting(true);
+    
     // Create a summary of previous interactions
     let contextSummary = "";
     if (messageHistory.length > 0) {
@@ -629,15 +581,15 @@ const maxHistoryLength = 3; // Keep last 3 interactions for context
     console.log("Context summary for API call:", contextSummary);
     
     // Pass the user message, context summary, and the image data
-      const aiResult = await requestAIActions(
-        imageData,
-        controlMethods,
+    const aiResult = await requestAIActions(
+      imageData,
+      controlMethods,
       currentUserMessage, // Current user message
       contextSummary // Previous interaction summary
-      );
-      
-      console.log("Received AI response:", aiResult);
-      setAiResponse(aiResult);
+    );
+    
+    console.log("Received AI response:", aiResult);
+    setAiResponse(aiResult);
     
     // Update message history with new interaction
     setMessageHistory(prev => {
@@ -655,37 +607,37 @@ const maxHistoryLength = 3; // Keep last 3 interactions for context
       const updatedHistory = [...prev, newItem].slice(-maxHistoryLength);
       return updatedHistory;
     });
-      
-      // Execute AI actions if any
-      if (aiResult.actions && aiResult.actions.length > 0) {
-        await executeAIActions(aiResult.actions);
+    
+    // Execute AI actions if any
+    if (aiResult.actions && aiResult.actions.length > 0) {
+      await executeAIActions(aiResult.actions);
     } else {
       console.warn("No actions received from AI");
-      }
-      
-      // Clear the current user message after processing
-      setCurrentUserMessage("");
-      
-    } catch (error) {
-      console.error("Error handling captured view:", error);
-      setExecuting(false);
-      setCurrentUserMessage("");
-    } finally {
-      // Always set executing to false when done
-      console.log("Setting executing to false in finally block");
-      setExecuting(false);
-      
-    // Schedule next capture if auto mode is on
-      if (autoMode) {
-        console.log("Auto mode is on, scheduling next capture");
-        // Small delay to ensure state is updated properly
-        setTimeout(() => {
-          scheduleNextCapture();
-        }, 100);
-      } else {
-        console.log("Auto mode is off, not scheduling next capture");
-      }
     }
+    
+    // Clear the current user message after processing
+    setCurrentUserMessage("");
+    
+  } catch (error) {
+    console.error("Error handling captured view:", error);
+    setExecuting(false);
+    setCurrentUserMessage("");
+  } finally {
+    // Always set executing to false when done
+    console.log("Setting executing to false in finally block");
+    setExecuting(false);
+    
+    // Schedule next capture if auto mode is on
+    if (autoMode) {
+      console.log("Auto mode is on, scheduling next capture");
+      // Small delay to ensure state is updated properly
+      setTimeout(() => {
+        scheduleNextCapture();
+      }, 100);
+    } else {
+      console.log("Auto mode is off, not scheduling next capture");
+    }
+  }
 }, [controls, scheduleNextCapture, autoMode, optimizeActionSequence, currentUserMessage, executeAIActions, messageHistory]);
 
 

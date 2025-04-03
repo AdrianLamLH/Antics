@@ -5,7 +5,7 @@ import * as THREE from 'three'
 
 export default function Character({ bodyRef, currentAnimation = 'idle', aiResponse = null, ...props }) {
     const group = useRef(null)
-    const { scene, animations } = useGLTF('/midoriya.glb')
+    const { scene, animations } = useGLTF('/jinx.glb')
     const { actions, names } = useAnimations(animations, group)
     const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
@@ -190,4 +190,4 @@ export default function Character({ bodyRef, currentAnimation = 'idle', aiRespon
     )
 }
 
-useGLTF.preload('/midoriya.glb')
+useGLTF.preload('/jinx.glb')
