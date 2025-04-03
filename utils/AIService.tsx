@@ -1,11 +1,14 @@
 export async function requestAIActions(
-  imageData, 
-  controlMethods, 
-  userMessage = "", 
-  contextSummary = "",
-  characterId = "character1"
+  imageData,
+  controlMethods,
+  userMessage,
+  conversationContext,
+  characterId,
+  characterConfig
 ) {  try {
-    console.log("Making AI request with context summary:", contextSummary);
+  console.log("Making AI request with context summary:", conversationContext);
+  console.log("Character config for request:", characterConfig); // Add this log
+
     
     const response = await fetch('/api/ai-character', {
       method: 'POST',
@@ -16,8 +19,9 @@ export async function requestAIActions(
         image: imageData,
         controls: controlMethods,
         userMessage: userMessage,
-        contextSummary: contextSummary, // Include previous interactions
-        characterId: characterId
+        conversationContext, // Include previous interactions
+        characterId: characterId,
+        characterConfig // Include the config in the request
       }),
     });
 

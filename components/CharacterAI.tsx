@@ -10,6 +10,7 @@ export default function CharacterAI({
   onStateChange,
   sharedConversation = [],
   characterId = "character1",
+  characterConfig = {}, // Add this prop
   children
 }) {
   const [capturingView, setCapturingView] = useState(false);
@@ -624,48 +625,48 @@ const [messageHistory, setMessageHistory] = useState([]);
 const maxHistoryLength = 3; // Keep last 3 interactions for context
 
 // Modify the handleCapturedView function to include message history
-  const handleCapturedView = useCallback(async (imageData) => {
-    console.log(`${characterId} view captured, processing...`);
-    setCapturingView(false);
+const handleCapturedView = useCallback(async (imageData) => {
+  console.log(`${characterId} view captured, processing...`);
+  setCapturingView(false);
+  
+  try {
+    // Prepare control methods array for AI
+    const controlMethods = Object.keys(controls());
     
-    try {
-      // Prepare control methods array for AI
-      const controlMethods = Object.keys(controls());
-      
-      console.log(`${characterId} setting executing to true`);
-      setExecuting(true);
-      
-      // Create context summary from shared conversation
-      let contextSummary = "";
-      if (sharedConversation.length > 0) {
-        contextSummary = "Recent conversation:\n";
-        // Get the last 5 messages for context
-        const recentMessages = sharedConversation.slice(-5);
-        recentMessages.forEach(msg => {
-          if (msg.sender === 'user') {
-            contextSummary += `User to ${msg.target || 'everyone'}: "${msg.text}"\n`;
-          } else if (msg.sender === characterId) {
-            contextSummary += `You said: "${msg.text}"\n`;
-          } else {
-            contextSummary += `Other character said: "${msg.text}"\n`;
-          }
-        });
-      }
+    console.log(`${characterId} setting executing to true`);
+    setExecuting(true);
+    
+    // Create context summary from shared conversation
+    let contextSummary = "";
+    if (sharedConversation.length > 0) {
+      contextSummary = "Recent conversation:\n";
+      // Get the last 5 messages for context
+      const recentMessages = sharedConversation.slice(-5);
+      recentMessages.forEach(msg => {
+        if (msg.sender === 'user') {
+          contextSummary += `User to ${msg.target || 'everyone'}: "${msg.text}"\n`;
+        } else if (msg.sender === characterId) {
+          contextSummary += `You said: "${msg.text}"\n`;
+        } else {
+          contextSummary += `Other character said: "${msg.text}"\n`;
+        }
+      });
+    }
     
     console.log("Context summary for API call:", contextSummary);
     
-    // Pass the user message, context summary, and the image data
-      const aiResult = await requestAIActions(
-        imageData,
-        controlMethods,
-        currentUserMessage, // Current user message
-        contextSummary, // Previous interaction summary
-        characterId
-
-      );
+    // Add character configuration to the AI request
+    const aiResult = await requestAIActions(
+      imageData,
+      controlMethods,
+      currentUserMessage,
+      contextSummary,
+      characterId,
+      characterConfig // Pass the config to the AI
+    );
       
-      console.log("Received AI response:", aiResult);
-      setAiResponse(aiResult);
+    console.log("Received AI response:", aiResult);
+    setAiResponse(aiResult);
     
     // Update message history with new interaction
     setMessageHistory(prev => {
@@ -714,7 +715,7 @@ const maxHistoryLength = 3; // Keep last 3 interactions for context
         console.log("Auto mode is off, not scheduling next capture");
       }
     }
-  }, [controls, scheduleNextCapture, autoMode, optimizeActionSequence, currentUserMessage, executeAIActions, sharedConversation, characterId]);
+  }, [controls, scheduleNextCapture, autoMode, currentUserMessage, executeAIActions, sharedConversation, characterId, characterConfig]); // Add characterConfig to dependencies
 
 
   // Notify parent component of state changes

@@ -1,34 +1,45 @@
 export async function POST(req) {
   try {
-    const { image, controls, userMessage, contextSummary } = await req.json();
+    const { 
+      image, 
+      controls, 
+      userMessage, 
+      conversationContext,
+      characterId,
+      characterConfig 
+    } = await req.json();
     
-    const characterConfig = {
-      personality: 'Friendly and curious',
-      biography: 'Midoriya from My Hero Academia in the virtual world',
-      customActions: []
-    };
+    // Then use contextSummary in your code if needed:
+    const contextToUse = conversationContext || "";
+    // const characterConfig = {
+    //   personality: 'Friendly and curious',
+    //   biography: 'Midoriya from My Hero Academia in the virtual world',
+    //   customActions: []
+    // };
+
+    const personality = characterConfig?.personality || "Friendly and curious";
+    const biography = characterConfig?.biography || "An AI explorer in a virtual world";
+    const goals = characterConfig?.goals || "";
+    const speechStyle = characterConfig?.speechStyle || "";
+    const customInstructions = characterConfig?.customInstructions || "";
+
 
     console.log("Received request with controls:", controls);
     
     // Build the AI prompt based on character configuration
-    let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.`;
-    
-    // Add personality and biography if provided
-    if (characterConfig) {
-      if (characterConfig.personality) {
-        characterPrompt += `\n\nYour personality: ${characterConfig.personality}`;
-      }
-      
-      if (characterConfig.biography) {
-        characterPrompt += `\n\nYour biography: ${characterConfig.biography}`;
-      }
-    }
-    
-    // Include context summary of previous interactions if available
-    if (contextSummary && contextSummary.trim()) {
-      characterPrompt += `\n\nRECENT CONVERSATION HISTORY:\n${contextSummary}`;
+    let characterPrompt = `You are an AI character in a 3D world exploring your surroundings. The user can chat with you and give you commands.
+
+      Your personality: ${personality}
+
+      Your biography: ${biography}
+      ${goals ? `\nYour goals: ${goals}` : ''}
+      ${speechStyle ? `\nYour speech style: ${speechStyle}` : ''}
+
+      ${customInstructions ? `Additional instructions: ${customInstructions}\n` : ''}
+
+      RECENT CONVERSATION HISTORY:
+      ${contextToUse || "No previous conversation."}`;
       characterPrompt += `\nRemember to maintain continuity with your previous thoughts and actions. Follow up on topics discussed earlier when appropriate.`;
-    }
     
     // Add standard prompt instructions
     characterPrompt += `\n\nWhen the user messages you:

@@ -14,6 +14,8 @@ import { ViewToggleButton, AIActionButton } from "../components/ActionButtons";
 
 import FlatFloor from '../components/FlatFloor';
 import BoundaryWalls from '../components/BoundaryWalls';
+import CharacterConfigPanel from '../components/CharacterConfigPanel';
+
 
 import { ScreenshotButton } from "../components/ActionButtons";
 import ScreenshotCapture from "../components/ScreenshotCapture";
@@ -60,6 +62,34 @@ export default function Home() {
     ],
     customActions: []
   });
+
+  const [showCharacter1Config, setShowCharacter1Config] = useState(false);
+  const [showCharacter2Config, setShowCharacter2Config] = useState(false);
+  const [character1Config, setCharacter1Config] = useState({
+    personality: 'Friendly and curious',
+    biography: 'An AI explorer discovering this virtual world',
+    goals: 'Explore and learn about the environment',
+    speechStyle: 'Casual and inquisitive',
+    customInstructions: ''
+  });
+  const [character2Config, setCharacter2Config] = useState({
+    personality: 'Analytical and cautious',
+    biography: 'A scientific AI studying this digital realm',
+    goals: 'Observe and document findings',
+    speechStyle: 'Technical and precise',
+    customInstructions: ''
+  });
+
+  // Add these handler functions
+  const saveCharacter1Config = (newConfig) => {
+    setCharacter1Config(newConfig);
+    console.log('Saved Character 1 config:', newConfig);
+  };
+  
+  const saveCharacter2Config = (newConfig) => {
+    setCharacter2Config(newConfig);
+    console.log('Saved Character 2 config:', newConfig);
+  };
 
   // Add these new states
   const [captureChar1Screenshot, setCaptureChar1Screenshot] = useState(false);
@@ -293,6 +323,12 @@ export default function Home() {
         {/* Character 1 Chat Interface */}
         <div>
           <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 1</h3>
+          <button 
+              onClick={() => setShowCharacter1Config(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Configure
+            </button>
           <div className="flex flex-col gap-2">
             <div className="flex gap-2 mt-2">
               <AIActionButton 
@@ -335,6 +371,12 @@ export default function Home() {
         {/* Character 2 Chat Interface */}
         <div>
           <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 2</h3>
+          <button 
+              onClick={() => setShowCharacter2Config(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Configure
+          </button>
           <div className="flex flex-col gap-2">
             <div className="flex gap-2 mt-2">
               <AIActionButton 
@@ -376,6 +418,25 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Configuration Panels */}
+      {showCharacter1Config && (
+        <CharacterConfigPanel
+          characterId="character1"
+          initialConfig={character1Config}
+          onSave={saveCharacter1Config}
+          onClose={() => setShowCharacter1Config(false)}
+        />
+      )}
+      
+      {showCharacter2Config && (
+        <CharacterConfigPanel
+          characterId="character2"
+          initialConfig={character2Config}
+          onSave={saveCharacter2Config}
+          onClose={() => setShowCharacter2Config(false)}
+        />
+      )}
 
       {/* Update instructions to remove key press references */}
       <div className="absolute bottom-4 right-4 z-10 bg-black bg-opacity-70 text-white p-3 rounded-md max-w-xs">
@@ -419,6 +480,7 @@ export default function Home() {
               onStateChange={handleAIStateChange}
               sharedConversation={sharedConversation}
               characterId="character1"
+              characterConfig={character1Config} // Pass the config here
             >
               {/* First-person camera for character 1 */}
               {viewMode === 'firstPerson1' && (
@@ -470,6 +532,7 @@ export default function Home() {
               onStateChange={handleAI2StateChange}
               sharedConversation={sharedConversation}
               characterId="character2"
+              characterConfig={character2Config} // Pass the config here
             >
               {/* First-person camera for character 2 */}
               {viewMode === 'firstPerson2' && (
