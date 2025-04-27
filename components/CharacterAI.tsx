@@ -11,6 +11,7 @@ export default function CharacterAI({
   sharedConversation = [],
   characterId = "character1",
   characterConfig = {}, // Add this prop
+  isMyTurn = true, // Add this prop
   children
 }) {
   const [capturingView, setCapturingView] = useState(false);
@@ -480,26 +481,34 @@ const stopContinuousMode = useCallback(() => {
   // Modify the triggerViewCapture to accept an optional user message
   const triggerViewCapture = useCallback((userMessage = "") => {
     if (capturingView || executing) {
-      console.warn("Already capturing view or executing actions");
+      console.warn(`${characterId}: Already capturing view or executing actions`);
       return;
     }
     
-    // Store the user message
-    setCurrentUserMessage(userMessage);
+    // Log the character state and turn information
+    console.log(`${characterId} triggered with message: "${userMessage}"`, {
+      isMyTurn,
+      characterId,
+      autoConversation: userMessage === "Let's continue our conversation"
+    });
     
-    // Set capturing view to true
-    console.log(`Setting capturing view to true with message: "${userMessage}"`);
+    // Proceed with capture
+    setCurrentUserMessage(userMessage);
     setCapturingView(true);
-  }, [capturingView, executing]);
+  }, [capturingView, executing, characterId, isMyTurn]);
+  
   
   const executeAIActions = useCallback(async (actions) => {
     console.log("Executing actions:", actions);
+    
+    // Set executing state
+    setExecuting(true);
     
     // Process actions sequentially with optimizations for dramatic movement
     const characterControls = controls();
     let totalExecutionTime = 0;
     
-    // Optimize the action sequence for more dramatic movement
+    // Optimize the action sequence for dramatic movement
     const optimizedActions = optimizeActionSequence(actions);
     console.log("Optimized actions for dramatic movement:", optimizedActions);
     
@@ -508,188 +517,154 @@ const stopContinuousMode = useCallback(() => {
       // Reduce delays by 50% for much more responsive, dramatic movement
       action.delay = Math.floor(action.delay * 0.5);
     });
-        
-    // Helper function to set appropriate animation
-    const setAnimationForAction = (actionType, value) => {
-      switch(actionType) {
-        case 'moveForward':
-        case 'moveBackward':
-        case 'moveLeft':
-        case 'moveRight':
-          // Use run animation for fast movements, walk for slower ones
-          setCurrentAnimation(value > 8 ? 'run' : 'walk');
-          break;
-        case 'jump':
-          setCurrentAnimation('jump');
-          break;
-        case 'wait':
-          setCurrentAnimation('idle');
-          break;
-        case 'turn':
-          // Keep current animation during turns
-          break;
-        default:
-          // Default back to idle
-          setCurrentAnimation('idle');
-      }
-    };
     
+    // Store the original rotation for consistent movement
     let originalRotation = null;
-    if (optimizedActions.some(a => a.type.includes('move'))) {
-      // Store the original rotation before any movement starts
-      originalRotation = characterBodyRef.current ? {...characterBodyRef.current.rotation()} : null;
-    }
-
-    // Execute the optimized actions
-    for (const action of optimizedActions) {
-      // For movement actions, ensure we're still facing the original direction
-      if (action.type.includes('move') && originalRotation && characterBodyRef.current) {
-        // Reset to original rotation before each movement to maintain straight line
-        characterBodyRef.current.setRotation(originalRotation, true);
-        console.log('Reset to original rotation for straight movement');
-      }
-      
-      // Set animation based on action type
-      if (action.type === 'moveForward' || action.type === 'moveBackward') {
-        // Log the current rotation to debug direction issues
-        const currentRotation = characterBodyRef.current.rotation();
-        console.log('Current rotation before movement:', 
-          'x=', currentRotation.x, 
-          'y=', currentRotation.y, 
-          'z=', currentRotation.z, 
-          'w=', currentRotation.w
-        );
-      }
-      
-      if (action.type === 'moveForward' || action.type === 'moveBackward' || 
-          action.type === 'moveLeft' || action.type === 'moveRight') {
-        // Run for faster movements, walk for slower ones
-        setCurrentAnimation(action.value > 8 ? 'run' : 'walk');
-      } else if (action.type === 'jump') {
-        setCurrentAnimation('jump');
-      } else if (action.type === 'wait') {
-        setCurrentAnimation('idle');
-      }
-      
-      await new Promise(resolve => {
-        actionsTimeoutRef.current = setTimeout(async () => {
-          const { type, value, delay } = action;
-          console.log(`Executing dramatic action: ${type}(${value})`);
-          
-          if (characterControls[type]) {
-            await characterControls[type](value);
-          } else {
-            console.warn(`Unknown action type: ${type}`);
-          }
-          totalExecutionTime += delay || 300;
-          resolve();
-        }, action.delay || 300); // Use slightly reduced delays for snappier movement
-      });
-      
-      // Wait a bit after jumping before changing animation
-      if (action.type === 'jump') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+    if (optimizedActions.some(a => a.type.includes('move')) && characterBodyRef.current) {
+      originalRotation = characterBodyRef.current.rotation();
     }
     
-    // Reset animation to idle when done
-    setCurrentAnimation('idle');
-    
-    
-    console.log(`Completed dramatic action sequence in ${totalExecutionTime}ms`);
+    try {
+      // Execute the optimized actions
+      for (const action of optimizedActions) {
+        // For movement actions, ensure we're still facing the original direction
+        if (action.type.includes('move') && originalRotation && characterBodyRef.current) {
+          // Reset to original rotation before each movement to maintain straight line
+          characterBodyRef.current.setRotation(originalRotation, true);
+        }
+        
+        // Set animation based on action type
+        if (action.type === 'moveForward' || action.type === 'moveBackward' || 
+            action.type === 'moveLeft' || action.type === 'moveRight') {
+          setCurrentAnimation(action.value > 8 ? 'run' : 'walk');
+        } else if (action.type === 'jump') {
+          setCurrentAnimation('jump');
+        } else if (action.type === 'wait') {
+          setCurrentAnimation('idle');
+        }
+        
+        // Execute the action
+        await new Promise(resolve => {
+          actionsTimeoutRef.current = setTimeout(async () => {
+            const { type, value, delay } = action;
+            console.log(`Executing dramatic action: ${type}(${value})`);
+            
+            if (characterControls[type]) {
+              await characterControls[type](value);
+            } else {
+              console.warn(`Unknown action type: ${type}`);
+            }
+            
+            totalExecutionTime += delay || 300;
+            resolve();
+          }, action.delay || 300);
+        });
+        
+        // Wait a bit after jumping before changing animation
+        if (action.type === 'jump') {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    } finally {
+      // Reset animation to idle when done
+      setCurrentAnimation('idle');
+      setExecuting(false);
+      console.log(`Completed dramatic action sequence in ${totalExecutionTime}ms`);
+    }
   }, [controls, optimizeActionSequence]);
 
-
   // Add a function to execute generic actions
-const executeGenericActions = useCallback(async () => {
-  console.log("Executing generic action sequence");
-  setExecuting(true);
-  
-  try {
-    // Get a random generic action sequence
-    const actions = genericActions();
-    console.log("Selected generic actions:", actions);
-    
-    // Execute the generic actions
-    await executeAIActions(actions);
-    
-  } catch (error) {
-    console.error("Error executing generic actions:", error);
-  } finally {
-    setExecuting(false);
-  }
-}, [executeAIActions, genericActions]);
-
-// Add state to keep track of message history
-const [messageHistory, setMessageHistory] = useState([]);
-const maxHistoryLength = 3; // Keep last 3 interactions for context
-
-// Modify the handleCapturedView function to include message history
-const handleCapturedView = useCallback(async (imageData) => {
-  console.log(`${characterId} view captured, processing...`);
-  setCapturingView(false);
-  
-  try {
-    // Prepare control methods array for AI
-    const controlMethods = Object.keys(controls());
-    
-    console.log(`${characterId} setting executing to true`);
+  const executeGenericActions = useCallback(async () => {
+    console.log("Executing generic action sequence");
     setExecuting(true);
     
-    // Create context summary from shared conversation
-    let contextSummary = "";
-    if (sharedConversation.length > 0) {
-      contextSummary = "Recent conversation:\n";
-      // Get the last 5 messages for context
-      const recentMessages = sharedConversation.slice(-5);
-      recentMessages.forEach(msg => {
-        if (msg.sender === 'user') {
-          contextSummary += `User to ${msg.target || 'everyone'}: "${msg.text}"\n`;
-        } else if (msg.sender === characterId) {
-          contextSummary += `You said: "${msg.text}"\n`;
-        } else {
-          contextSummary += `Other character said: "${msg.text}"\n`;
-        }
-      });
+    try {
+      // Get a random generic action sequence
+      const actions = genericActions();
+      console.log("Selected generic actions:", actions);
+      
+      // Execute the generic actions
+      await executeAIActions(actions);
+      
+    } catch (error) {
+      console.error("Error executing generic actions:", error);
+    } finally {
+      setExecuting(false);
     }
+  }, [executeAIActions, genericActions]);
+
+  // Add state to keep track of message history
+  const [messageHistory, setMessageHistory] = useState([]);
+  const maxHistoryLength = 3; // Keep last 3 interactions for context
+
+  // Modify the handleCapturedView function to include message history
+  const handleCapturedView = useCallback(async (imageData) => {
+    console.log(`${characterId} view captured, processing...`);
+    setCapturingView(false);
     
-    console.log("Context summary for API call:", contextSummary);
-    
-    // Add character configuration to the AI request
-    const aiResult = await requestAIActions(
-      imageData,
-      controlMethods,
-      currentUserMessage,
-      contextSummary,
-      characterId,
-      characterConfig // Pass the config to the AI
-    );
+    try {
+      // Prepare control methods array for AI
+      const controlMethods = Object.keys(controls());
       
-    console.log("Received AI response:", aiResult);
-    setAiResponse(aiResult);
-    
-    // Update message history with new interaction
-    setMessageHistory(prev => {
-      // Create new history item
-      const newItem = {
-        userMessage: currentUserMessage,
-        aiResponse: {
-          thought: aiResult.thought,
-          speech: aiResult.speech
-        },
-        actions: aiResult.actions
-      };
+      console.log(`${characterId} setting executing to true`);
+      setExecuting(true);
       
-      // Add to history and limit length
-      const updatedHistory = [...prev, newItem].slice(-maxHistoryLength);
-      return updatedHistory;
-    });
+      // Create context summary from shared conversation
+      let contextSummary = "";
+      if (sharedConversation.length > 0) {
+        contextSummary = "Recent conversation:\n";
+        // Get the last 5 messages for context
+        const recentMessages = sharedConversation.slice(-5);
+        recentMessages.forEach(msg => {
+          if (msg.sender === 'user') {
+            contextSummary += `User to ${msg.target || 'everyone'}: "${msg.text}"\n`;
+          } else if (msg.sender === characterId) {
+            contextSummary += `You said: "${msg.text}"\n`;
+          } else {
+            contextSummary += `Other character said: "${msg.text}"\n`;
+          }
+        });
+      }
       
+      console.log("Context summary for API call:", contextSummary);
+      
+      // Add character configuration to the AI request
+      const aiResult = await requestAIActions(
+        imageData,
+        controlMethods,
+        currentUserMessage,
+        contextSummary,
+        characterId,
+        characterConfig // Pass the config to the AI
+      );
+        
+      console.log("Received AI response:", aiResult);
+      
+      // Set the AI response ONCE, before executing any actions
+      setAiResponse(aiResult);
+      
+      // Update message history with new interaction
+      setMessageHistory(prev => {
+        // Create new history item
+        const newItem = {
+          userMessage: currentUserMessage,
+          aiResponse: {
+            thought: aiResult.thought,
+            speech: aiResult.speech
+          },
+          actions: aiResult.actions
+        };
+        
+        // Add to history and limit length
+        const updatedHistory = [...prev, newItem].slice(-maxHistoryLength);
+        return updatedHistory;
+      });
+        
       // Execute AI actions if any
       if (aiResult.actions && aiResult.actions.length > 0) {
         await executeAIActions(aiResult.actions);
-    } else {
-      console.warn("No actions received from AI");
+      } else {
+        console.warn("No actions received from AI");
       }
       
       // Clear the current user message after processing
@@ -704,7 +679,7 @@ const handleCapturedView = useCallback(async (imageData) => {
       console.log("Setting executing to false in finally block");
       setExecuting(false);
       
-    // Schedule next capture if auto mode is on
+      // Schedule next capture if auto mode is on
       if (autoMode) {
         console.log("Auto mode is on, scheduling next capture");
         // Small delay to ensure state is updated properly
@@ -715,7 +690,11 @@ const handleCapturedView = useCallback(async (imageData) => {
         console.log("Auto mode is off, not scheduling next capture");
       }
     }
-  }, [controls, scheduleNextCapture, autoMode, currentUserMessage, executeAIActions, sharedConversation, characterId, characterConfig]); // Add characterConfig to dependencies
+  }, [
+    controls, scheduleNextCapture, autoMode, 
+    currentUserMessage, executeAIActions, 
+    sharedConversation, characterId, characterConfig
+  ]);
 
 
   // Notify parent component of state changes

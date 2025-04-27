@@ -51,6 +51,15 @@ export default function Home() {
 
   const [viewMode, setViewMode] = useState('thirdPerson'); // 'thirdPerson', 'firstPerson1', or 'firstPerson2'
 
+  // Add these state variables to track whose turn it is
+  const [conversationTurn, setConversationTurn] = useState('character1');
+  const [turnInProgress, setTurnInProgress] = useState(false);
+  const [autoDialogueMode, setAutoDialogueMode] = useState(false);
+
+  // Add a state variable to track the last dialogue time
+  const [lastDialogueTime, setLastDialogueTime] = useState(0);
+
+
   const [userMessage, setUserMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const [characterAttributes, setCharacterAttributes] = useState({
@@ -107,6 +116,101 @@ export default function Home() {
     setCaptureChar2Screenshot(Date.now()); // Use timestamp instead of boolean toggle
   }, []);
 
+  // Add this function to handle turn transitions
+  const advanceTurn = useCallback(() => {
+    if (!autoDialogueMode) return;
+    
+    console.log("Advancing turn from", conversationTurn);
+    
+    // Reset turn in progress first, then change the turn
+    setTurnInProgress(false);
+    setConversationTurn(prev => (prev === 'character1' ? 'character2' : 'character1'));
+  }, [autoDialogueMode]);
+  
+  // Separate effect to observe turn changes and trigger the next character
+  useEffect(() => {
+    if (!autoDialogueMode) return;
+    
+    console.log("Turn changed to:", conversationTurn, "turnInProgress:", turnInProgress);
+    
+    if (turnInProgress) return;
+    
+    // Set a timer to trigger the next character's response
+    const timer = setTimeout(() => {
+      console.log("Auto-triggering character:", conversationTurn);
+      
+      setTurnInProgress(true);
+      
+      if (conversationTurn === 'character1') {
+        console.log("Triggering character 1");
+        triggerCapture("Let's continue our conversation");
+      } else {
+        console.log("Triggering character 2");
+        triggerCapture2("Let's continue our conversation");
+      }
+    }, 2000); // 2 second delay between turns
+    
+    return () => clearTimeout(timer);
+  }, [conversationTurn, autoDialogueMode, turnInProgress, triggerCapture, triggerCapture2]);
+
+  // Add a separate function for auto dialogue
+  const startAutoDialogue = useCallback(() => {
+    console.log("Starting auto dialogue between characters");
+    
+    // Set the mode
+    setAutoDialogueMode(true);
+    
+    // Always start with character 1
+    setConversationTurn('character1');
+    
+    // Trigger the first character with a prompt to start a conversation
+    triggerCapture("You notice another character. Start a friendly conversation with them. Ask them a question about themselves or their experiences.");
+  }, [triggerCapture]);
+
+  // Stop auto dialogue
+  const stopAutoDialogue = useCallback(() => {
+    console.log("Stopping auto dialogue");
+    setAutoDialogueMode(false);
+  }, []);
+
+  // Add a function to handle the dialogue turn switching
+  const switchDialogueTurn = useCallback(() => {
+    if (!autoDialogueMode) return;
+    
+    const now = Date.now();
+    const elapsedSinceLastDialogue = now - lastDialogueTime;
+    
+    // If less than 10 seconds have passed since the last dialogue, wait
+    if (elapsedSinceLastDialogue < 10000) {
+      const remainingTime = 10000 - elapsedSinceLastDialogue;
+      console.log(`Waiting ${remainingTime}ms to complete 10-second pause between turns`);
+      
+      // Schedule the switch after the remaining time
+      const timer = setTimeout(() => {
+        switchDialogueTurn();
+      }, remainingTime);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    console.log("Switching dialogue turn after 10-second pause");
+    
+    // Update the last dialogue time
+    setLastDialogueTime(now);
+    
+    // Switch turn
+    const nextTurn = conversationTurn === 'character1' ? 'character2' : 'character1';
+    setConversationTurn(nextTurn);
+    
+    // After switching, trigger the next character with a contextual prompt
+    setTimeout(() => {
+      if (nextTurn === 'character1') {
+        triggerCapture("Continue the conversation with the other character");
+      } else {
+        triggerCapture2("Continue the conversation with the other character");
+      }
+    }, 500); // Short delay for state update
+  }, [autoDialogueMode, conversationTurn, triggerCapture, triggerCapture2, lastDialogueTime]);  
   // Update the view toggle function
   const toggleView = () => {
     setViewMode(current => {
@@ -180,25 +284,57 @@ export default function Home() {
     
     // Add AI response to shared conversation
     if (state.aiResponse && state.aiResponse.speech) {
-      setSharedConversation(prev => [...prev, {
-        sender: 'character1',
-        text: state.aiResponse.speech,
-        timestamp: Date.now()
-      }]);
+      setSharedConversation(prev => {
+        // Check if this exact message is already in the conversation
+        const isDuplicate = prev.some(msg => 
+          msg.sender === 'character1' && 
+          msg.text === state.aiResponse.speech &&
+          // Consider messages within 2 seconds as duplicates
+          Date.now() - msg.timestamp < 2000
+        );
+        
+        // Only add if not a duplicate
+        if (!isDuplicate) {
+          return [...prev, {
+            sender: 'character1',
+            text: state.aiResponse.speech,
+            timestamp: Date.now(),
+            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
+          }];
+        }
+        return prev;
+      });
       
-      // Also update chat history if you're using that
+      // Also update chat history with deduplication
       setChatHistory(prev => {
         const lastMessage = prev.length > 0 ? prev[prev.length - 1] : null;
         if (!lastMessage || lastMessage.sender !== 'ai' || lastMessage.text !== state.aiResponse.speech) {
           return [...prev, { 
             sender: 'ai', 
-            text: state.aiResponse.speech 
+            text: state.aiResponse.speech,
+            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
           }];
         }
         return prev;
-      });
+      });  
+      // Check for auto dialogue conditions
+      if (autoDialogueMode && 
+          conversationTurn === 'character1' && 
+          !state.executing && 
+          !state.capturingView) {
+        console.log("Character 1 finished speaking, switching dialogue turn");
+        // Use a delay to ensure any actions are complete
+        setTimeout(() => switchDialogueTurn(), 2000);
+      }
+      // When the character is completely done (not executing or capturing)
+      if (!state.executing && !state.capturingView && autoDialogueMode && 
+        conversationTurn === 'character1') {
+      console.log("Character 1 finished speaking, advancing turn");
+      setTimeout(() => advanceTurn(), 1500);
     }
-  }, []);
+  }
+}, [autoDialogueMode, conversationTurn, advanceTurn]);
+
 
   // Handle state changes from second CharacterAI component
   const handleAI2StateChange = useCallback((state) => {
@@ -215,14 +351,60 @@ export default function Home() {
     
     // Add AI response to shared conversation
     if (state.aiResponse && state.aiResponse.speech) {
-      setSharedConversation(prev => [...prev, {
-        sender: 'character2',
-        text: state.aiResponse.speech,
-        timestamp: Date.now()
-      }]);
+      setSharedConversation(prev => {
+        // Check if this exact message is already in the conversation
+        const isDuplicate = prev.some(msg => 
+          msg.sender === 'character2' && 
+          msg.text === state.aiResponse.speech &&
+          // Consider messages within 2 seconds as duplicates
+          Date.now() - msg.timestamp < 2000
+        );
+        
+        // Only add if not a duplicate
+        if (!isDuplicate) {
+          return [...prev, {
+            sender: 'character2',
+            text: state.aiResponse.speech,
+            timestamp: Date.now(),
+            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
+          }];
+        }
+        return prev;
+      });
+      
+      // Also update chat history with deduplication
+      setChatHistory(prev => {
+        const lastMessage = prev.length > 0 ? prev[prev.length - 1] : null;
+        if (!lastMessage || lastMessage.sender !== 'ai' || lastMessage.text !== state.aiResponse.speech) {
+          return [...prev, { 
+            sender: 'ai', 
+            text: state.aiResponse.speech,
+            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
+          }];
+        }
+        return prev;
+      });  
+        
+      // Check for auto dialogue conditions
+      if (autoDialogueMode && 
+          conversationTurn === 'character2' && 
+          !state.executing && 
+          !state.capturingView) {
+        console.log("Character 2 finished speaking, switching dialogue turn");
+        // Use a delay to ensure any actions are complete
+        setTimeout(() => switchDialogueTurn(), 2000);
+      }
+      
+      // Check if it's character 2's turn and they're done speaking
+      if (!state.executing && !state.capturingView && autoDialogueMode && 
+        conversationTurn === 'character2') {
+      console.log("Character 2 finished speaking, advancing turn");
+      setTimeout(() => advanceTurn(), 1500);
     }
-  }, []);
-  
+  }
+}, [autoDialogueMode, conversationTurn, advanceTurn]);
+
+
   // Check if character is out of bounds
   useEffect(() => {
     const checkPosition = setInterval(() => {
@@ -438,6 +620,20 @@ export default function Home() {
         />
       )}
 
+      {/* // Add this UI element near your other controls */}
+      <div className="absolute top-40 right-4 z-10 flex flex-col gap-2">
+        <button 
+          className={`px-4 py-2 rounded-md ${
+            autoDialogueMode 
+              ? "bg-purple-600 hover:bg-purple-700" 
+              : "bg-black bg-opacity-70 hover:bg-opacity-80"
+          } text-white`}
+          onClick={() => autoDialogueMode ? stopAutoDialogue() : startAutoDialogue()}
+        >
+          {autoDialogueMode ? "Stop Auto Dialogue" : "Start Auto Dialogue"}
+        </button>
+      </div>
+
       {/* Update instructions to remove key press references */}
       <div className="absolute bottom-4 right-4 z-10 bg-black bg-opacity-70 text-white p-3 rounded-md max-w-xs">
         <h3 className="font-bold mb-1">Controls</h3>
@@ -446,6 +642,26 @@ export default function Home() {
       </div>
       
       {/* <AIResponseDisplay aiResponse={aiResponse} /> */}
+
+      {/* Character 1 header */}
+      <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md flex items-center">
+        Character 1
+        {autoDialogueMode && conversationTurn === 'character1' && (
+          <span className="ml-2 px-2 py-1 text-xs bg-purple-600 rounded animate-pulse">
+            Speaking
+          </span>
+        )}
+      </h3>
+
+      {/* Character 2 header */}
+      <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md flex items-center">
+        Character 2
+        {autoDialogueMode && conversationTurn === 'character2' && (
+          <span className="ml-2 px-2 py-1 text-xs bg-purple-600 rounded animate-pulse">
+            Speaking
+          </span>
+        )}
+      </h3>
       
       <Canvas shadows>
         {/* Default third-person camera */}
@@ -480,7 +696,8 @@ export default function Home() {
               onStateChange={handleAIStateChange}
               sharedConversation={sharedConversation}
               characterId="character1"
-              characterConfig={character1Config} // Pass the config here
+              characterConfig={character1Config}
+              isMyTurn={autoDialogueMode ? conversationTurn === 'character1' : true}
             >
               {/* First-person camera for character 1 */}
               {viewMode === 'firstPerson1' && (
@@ -532,7 +749,8 @@ export default function Home() {
               onStateChange={handleAI2StateChange}
               sharedConversation={sharedConversation}
               characterId="character2"
-              characterConfig={character2Config} // Pass the config here
+              characterConfig={character2Config}
+              isMyTurn={autoDialogueMode ? conversationTurn === 'character2' : true}
             >
               {/* First-person camera for character 2 */}
               {viewMode === 'firstPerson2' && (

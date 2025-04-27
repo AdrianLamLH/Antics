@@ -46,7 +46,10 @@ export default function ChatInterface({
       <div className="space-y-2">
         {/* Display chat history */}
         {chatHistory.map((msg, index) => (
-          <div key={index} className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}>
+          <div 
+            key={msg.id || `msg-${index}-${msg.timestamp || Date.now()}`} 
+            className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}
+          >
             <p className="text-sm text-gray-300">
               {getSenderName(msg.sender)}:
             </p>
