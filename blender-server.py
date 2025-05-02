@@ -41,6 +41,20 @@ def setup_scene():
         raise
 
 
+def get_or_add_modifier(obj_name, modifier_type, modifier_name_str):
+    try:
+        obj = bpy.data.objects[obj_name]  # Find the object
+    except KeyError:
+        print(f"Object '{obj_name}' not found.  Cannot add modifier.")
+        return None
+
+    modifier = obj.modifiers.get(modifier_name_str)
+    if not modifier:
+        modifier = obj.modifiers.new(name=modifier_name_str, type=modifier_type)
+        print(f"Modifier '{modifier_name_str}' added to '{obj_name}'")
+    return modifier
+
+
 class BlenderRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/execute-blender":
@@ -72,17 +86,17 @@ class BlenderRequestHandler(http.server.SimpleHTTPRequestHandler):
 
                     # Execute the commands with the proper context
                     if "override" in locals():
+                        local_vars = {"bpy": bpy, "get_or_add_modifier": get_or_add_modifier}  # Add bpy and helper function
                         with bpy.context.temp_override(**override):
-                            exec(commands)
+                            exec(commands, globals(), local_vars)  # Pass local_vars
                     else:
-                        exec(commands)
-
+                        local_vars = {"bpy": bpy, "get_or_add_modifier": get_or_add_modifier}
+                        exec(commands, globals(), local_vars)
                     print("Commands executed successfully")
                 except Exception as e:
-                    print("Error executing commands:", str(e))  # Debug log
-                    print("Traceback:", traceback.format_exc())  # Debug log
+                    print("Error executing commands:", str(e))
+                    print("Traceback:", traceback.format_exc())
                     raise
-
                 # Create a temporary directory for the output
                 with tempfile.TemporaryDirectory() as temp_dir:
                     print("Created temp directory:", temp_dir)  # Debug log
