@@ -19,6 +19,9 @@ import CharacterConfigPanel from '../components/CharacterConfigPanel';
 
 import { ScreenshotButton } from "../components/ActionButtons";
 import ScreenshotCapture from "../components/ScreenshotCapture";
+import DrawingBoard from '../components/DrawingBoard';
+import DrawnObject from '../components/DrawnObject';
+import { Html } from "@react-three/drei";
 
 
 export default function Home() {
@@ -462,6 +465,28 @@ export default function Home() {
   //   };
   // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
 
+  const [drawnObjects, setDrawnObjects] = useState<{ geometry: ExtrudeGeometry; position: [number, number, number]; scale?: [number, number, number] }[]>([]);
+  const [showDrawingBoard, setShowDrawingBoard] = useState(false);
+  const [showObjectList, setShowObjectList] = useState(false);
+
+  const handleDrawingComplete = (geometry: ExtrudeGeometry) => {
+    const newPosition: [number, number, number] = [0, 2, -10];
+    setDrawnObjects(prev => [...prev, { 
+      geometry, 
+      position: newPosition,
+      scale: [0.1, 0.1, 0.1]
+    }]);
+    setShowDrawingBoard(false);
+  };
+
+  const deleteDrawnObject = (index: number) => {
+    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteAllDrawnObjects = () => {
+    setDrawnObjects([]);
+  };
+
   return (
     <div className="w-full h-screen">
       {/* View toggle button */}
@@ -792,10 +817,79 @@ export default function Home() {
             <BaseMap position={[0,-10,0]} />
           </RigidBody>
           <BoundaryWalls size={20} />
+          
+          {/* Render drawn objects */}
+          {drawnObjects.map((obj, index) => (
+            <mesh
+              key={index}
+              geometry={obj.geometry}
+              position={obj.position}
+              scale={obj.scale || [0.1, 0.1, 0.1]}
+              castShadow
+              receiveShadow
+            >
+              <meshStandardMaterial color="white" />
+            </mesh>
+          ))}
         </Physics>
         <Environment preset="sunset" background/>
       </Suspense>
     </Canvas>
+
+    {showDrawingBoard && (
+      <div className="fixed top-0 right-0 p-4 bg-black bg-opacity-70 text-white rounded-lg shadow-lg z-50">
+        <DrawingBoard onDrawingComplete={handleDrawingComplete} />
+        <div className="mt-4">
+          <div className="mb-2">
+            <button
+              className="w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded flex items-center justify-between"
+              onClick={() => setShowObjectList(prev => !prev)}
+            >
+              <span className="font-semibold">Drawn Objects ({drawnObjects.length})</span>
+              <span>{showObjectList ? '▼' : '▶'}</span>
+            </button>
+            {showObjectList && (
+              <div className="mt-2 max-h-40 overflow-y-auto border rounded bg-white">
+                {drawnObjects.map((_, index) => (
+                  <div key={index} className="flex items-center justify-between py-1 px-2 hover:bg-gray-100">
+                    <span>Object {index + 1}</span>
+                    <button
+                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+                      onClick={() => deleteDrawnObject(index)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {drawnObjects.length > 0 && (
+            <button
+              className="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              onClick={deleteAllDrawnObjects}
+            >
+              Delete All Objects
+            </button>
+          )}
+        </div>
+        <button
+          className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          onClick={() => setShowDrawingBoard(false)}
+        >
+          Close Drawing Board
+        </button>
+      </div>
+    )}
+
+    <div className="fixed bottom-4 right-4 z-50">
+      <button
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        onClick={() => setShowDrawingBoard(true)}
+      >
+        Open Drawing Board
+      </button>
+    </div>
     </div>
   );
 }
