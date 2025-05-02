@@ -22,6 +22,7 @@ import ScreenshotCapture from "../components/ScreenshotCapture";
 import DrawingBoard from '../components/DrawingBoard';
 import DrawnObject from '../components/DrawnObject';
 import { Html } from "@react-three/drei";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 
 export default function Home() {
@@ -469,15 +470,36 @@ export default function Home() {
   const [showDrawingBoard, setShowDrawingBoard] = useState(false);
   const [showObjectList, setShowObjectList] = useState(false);
 
-  const handleDrawingComplete = (geometry: ExtrudeGeometry) => {
-    const newPosition: [number, number, number] = [0, 2, -10];
-    setDrawnObjects(prev => [...prev, { 
-      geometry, 
-      position: newPosition,
-      scale: [0.1, 0.1, 0.1]
-    }]);
-    setShowDrawingBoard(false);
-  };
+  const sceneRef = useRef(null);
+
+  const handleDrawingComplete = useCallback((modelUrl) => {
+    // Load the GLB model
+    const loader = new GLTFLoader();
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(1, 1, 1);
+        model.position.set(0, 0, 0);
+        
+        // Add the model to the scene
+        if (sceneRef.current) {
+          sceneRef.current.add(model);
+        }
+        
+        // Add to drawn objects state
+        setDrawnObjects(prev => [...prev, {
+          model,
+          position: [0, 0, 0],
+          scale: [1, 1, 1]
+        }]);
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading model:', error);
+      }
+    );
+  }, []);
 
   const deleteDrawnObject = (index: number) => {
     setDrawnObjects(prev => prev.filter((_, i) => i !== index));
@@ -688,7 +710,7 @@ export default function Home() {
         )}
       </h3>
       
-      <Canvas shadows>
+      <Canvas shadows onCreated={({ scene }) => { sceneRef.current = scene; }}>
         {/* Default third-person camera */}
         {viewMode === 'thirdPerson' && (
           <PerspectiveCamera
@@ -748,7 +770,7 @@ export default function Home() {
                 bodyRef={characterBodyRef} 
                 currentAnimation={currentAnimation}
                 aiResponse={aiResponse}
-                modelPath="/spiderman.glb"
+                modelPath="/jinx.glb"
               />
             </Suspense>
             <CuboidCollider 
@@ -838,7 +860,13 @@ export default function Home() {
 
     {showDrawingBoard && (
       <div className="fixed top-0 right-0 p-4 bg-black bg-opacity-70 text-white rounded-lg shadow-lg z-50">
-        <DrawingBoard onDrawingComplete={handleDrawingComplete} />
+        <DrawingBoard 
+          onDrawingComplete={handleDrawingComplete}
+          onClear={() => {
+            // Remove the last drawn object
+            setDrawnObjects(prev => prev.slice(0, -1));
+          }}
+        />
         <div className="mt-4">
           <div className="mb-2">
             <button

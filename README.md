@@ -41,6 +41,11 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+Next, run the blender server using:
+```bash
+blender --background --python blender-server.py
+```
+
 ## Current Status
 The project is in early development. We have successfully implemented:
 - Basic 3D environment rendering

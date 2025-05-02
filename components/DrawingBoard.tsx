@@ -1,15 +1,22 @@
 "use client"
 import React, { useRef, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { ExtrudeGeometry, Shape, MeshStandardMaterial, Mesh } from 'three';
+import { ExtrudeGeometry, Shape, MeshStandardMaterial, Mesh, Group } from 'three';
+import { OrbitControls } from '@react-three/drei';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 interface DrawingBoardProps {
-  onDrawingComplete: (geometry: ExtrudeGeometry) => void;
+  onDrawingComplete: (geometry: any) => void;
+  onClear: () => void;
 }
 
-const DrawingBoard: React.FC<DrawingBoardProps> = ({ onDrawingComplete }) => {
+export default function DrawingBoard({ onDrawingComplete, onClear }: DrawingBoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'drawing' | 'preview'>('drawing');
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
   const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([]);
 
@@ -103,40 +110,142 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onDrawingComplete }) => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setPoints([]);
     setCurrentPath([]);
+    setPreviewUrl(null);
+    setModelUrl(null);
+    onClear();
   };
 
   const handleMouseLeave = () => {
     endStroke();
   };
 
+  const convertTo3D = async () => {
+    try {
+      setIsConverting(true);
+      const canvas = canvasRef.current;
+      
+      // Get the drawing as base64
+      const imageData = canvas.toDataURL('image/png');
+      
+      // Send to our conversion API
+      const response = await fetch('/api/convert-drawing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageData }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setPreviewUrl(data.previewUrl);
+        setModelUrl(data.modelUrl);
+        onDrawingComplete(data.modelUrl);
+      } else {
+        console.error('Conversion failed:', data.error);
+      }
+    } catch (error) {
+      console.error('Error converting drawing:', error);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const ModelViewer = ({ url }: { url: string }) => {
+    const [model, setModel] = useState<Group | null>(null);
+    const loader = new GLTFLoader();
+
+    useEffect(() => {
+      if (url) {
+        const base64Data = url.split(',')[1];
+        const binaryData = atob(base64Data);
+        const arrayBuffer = new ArrayBuffer(binaryData.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < binaryData.length; i++) {
+          uint8Array[i] = binaryData.charCodeAt(i);
+        }
+
+        loader.parse(arrayBuffer, '', (gltf) => {
+          setModel(gltf.scene);
+        });
+      }
+    }, [url]);
+
+    if (!model) return null;
+
+    return (
+      <primitive object={model} scale={1} />
+    );
+  };
+
   return (
-    <div className="drawing-board-container bg-black bg-opacity-70 text-white p-4 rounded-lg">
-      <canvas
-        ref={canvasRef}
-        width={400}
-        height={400}
-        className="border-2 border-black rounded bg-gray-200"
-        onMouseDown={startDrawing}
-        onMouseMove={draw}
-        onMouseUp={endStroke}
-        onMouseLeave={handleMouseLeave}
-      />
-      <div className="flex gap-2 mt-2">
+    <div className="flex flex-col items-center space-y-4">
+      <div className="flex space-x-4">
         <button
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-          onClick={completeDrawing}
+          onClick={() => setActiveTab('drawing')}
+          className={`px-4 py-2 rounded ${
+            activeTab === 'drawing'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
         >
-          Complete Drawing
+          Drawing
         </button>
         <button
-          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-          onClick={clearCanvas}
+          onClick={() => setActiveTab('preview')}
+          className={`px-4 py-2 rounded ${
+            activeTab === 'preview'
+              ? 'bg-blue-500 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
+          disabled={!modelUrl}
         >
-          Clear Canvas
+          3D Preview
+        </button>
+      </div>
+
+      <div className="relative w-[800px] h-[600px] border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
+        {activeTab === 'drawing' ? (
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={600}
+            className="absolute top-0 left-0 bg-white"
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={endStroke}
+            onMouseLeave={handleMouseLeave}
+          />
+        ) : (
+          modelUrl && (
+            <div className="w-full h-full">
+              <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+                <ambientLight intensity={0.5} />
+                <pointLight position={[10, 10, 10]} />
+                <ModelViewer url={modelUrl} />
+                <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+              </Canvas>
+            </div>
+          )
+        )}
+      </div>
+
+      <div className="flex space-x-4">
+        <button
+          onClick={clearCanvas}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          Clear
+        </button>
+        <button
+          onClick={convertTo3D}
+          disabled={isConverting}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+        >
+          {isConverting ? 'Converting...' : 'Convert to 3D'}
         </button>
       </div>
     </div>
   );
-};
-
-export default DrawingBoard; 
+} 
