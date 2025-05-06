@@ -492,21 +492,6 @@ export default function Home() {
     angularDamping: number;
   }) => {
     try {
-      // Create meshes for each geometry with its corresponding color
-      const meshes = geometries.map(({ geometry, color }) => {
-        const material = new THREE.MeshStandardMaterial({ 
-          color: new THREE.Color(color),
-          metalness: 0.3,
-          roughness: 0.4,
-        });
-        return new THREE.Mesh(geometry, material);
-      });
-      
-      // Add all meshes to the scene
-      if (sceneRef.current) {
-        meshes.forEach(mesh => sceneRef.current.add(mesh));
-      }
-      
       // Add the new object to the drawn objects state
       setDrawnObjects(prev => [...prev, {
         geometries,
