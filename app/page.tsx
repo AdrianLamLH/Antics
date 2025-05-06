@@ -470,18 +470,32 @@ export default function Home() {
   const [drawnObjects, setDrawnObjects] = useState<{ 
     geometry: THREE.ExtrudeGeometry; 
     position: [number, number, number]; 
-    scale?: [number, number, number] 
+    scale?: [number, number, number];
+    color: string;
+    physicsProps: {
+      mass: number;
+      restitution: number;
+      friction: number;
+      linearDamping: number;
+      angularDamping: number;
+    };
   }[]>([]);
   const [showDrawingBoard, setShowDrawingBoard] = useState(false);
   const [showObjectList, setShowObjectList] = useState(false);
 
   const sceneRef = useRef(null);
 
-  const handleDrawingComplete = useCallback((geometry: THREE.ExtrudeGeometry) => {
+  const handleDrawingComplete = useCallback((geometry: THREE.ExtrudeGeometry, color: string, physicsProps: {
+    mass: number;
+    restitution: number;
+    friction: number;
+    linearDamping: number;
+    angularDamping: number;
+  }) => {
     try {
       // Create a material for the geometry
       const material = new THREE.MeshStandardMaterial({ 
-        color: 0xffffff,
+        color: new THREE.Color(color),
         metalness: 0.3,
         roughness: 0.4,
       });
@@ -489,16 +503,36 @@ export default function Home() {
       // Create a mesh from the geometry and material
       const mesh = new THREE.Mesh(geometry, material);
       
-      // Add the mesh to the scene
+      // Remove any existing drawn objects from the scene
+      if (sceneRef.current) {
+        // Find and remove any existing meshes
+        const existingMeshes = sceneRef.current.children.filter(child => 
+          child instanceof THREE.Mesh
+        );
+        
+        existingMeshes.forEach(mesh => {
+          sceneRef.current.remove(mesh);
+          mesh.geometry.dispose();
+          if (mesh.material instanceof THREE.Material) {
+            mesh.material.dispose();
+          } else if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(material => material.dispose());
+          }
+        });
+      }
+      
+      // Add the new mesh to the scene
       if (sceneRef.current) {
         sceneRef.current.add(mesh);
       }
       
-      // Add to drawn objects state
-      setDrawnObjects(prev => [...prev, {
+      // Replace the drawn objects state with the new object
+      setDrawnObjects([{
         geometry,
-        position: [0, 0, 0],
-        scale: [1, 1, 1]
+        position: [0, 5, 0], // Start slightly above ground
+        scale: [1, 1, 1],
+        color,
+        physicsProps
       }]);
     } catch (error) {
       console.error('Error creating 3D model:', error);
@@ -506,10 +540,50 @@ export default function Home() {
   }, []);
 
   const deleteDrawnObject = (index: number) => {
+    // Remove the mesh from the scene
+    if (sceneRef.current) {
+      const mesh = sceneRef.current.children.find(child => 
+        child instanceof THREE.Mesh && 
+        child.geometry === drawnObjects[index].geometry
+      );
+      if (mesh) {
+        sceneRef.current.remove(mesh);
+        // Dispose of geometry and material to free up memory
+        mesh.geometry.dispose();
+        if (mesh.material instanceof THREE.Material) {
+          mesh.material.dispose();
+        } else if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(material => material.dispose());
+        }
+      }
+    }
+    
+    // Update the state
     setDrawnObjects(prev => prev.filter((_, i) => i !== index));
   };
 
   const deleteAllDrawnObjects = () => {
+    // Remove all meshes from the scene
+    if (sceneRef.current) {
+      drawnObjects.forEach(obj => {
+        const mesh = sceneRef.current.children.find(child => 
+          child instanceof THREE.Mesh && 
+          child.geometry === obj.geometry
+        );
+        if (mesh) {
+          sceneRef.current.remove(mesh);
+          // Dispose of geometry and material to free up memory
+          mesh.geometry.dispose();
+          if (mesh.material instanceof THREE.Material) {
+            mesh.material.dispose();
+          } else if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(material => material.dispose());
+          }
+        }
+      });
+    }
+    
+    // Clear the state
     setDrawnObjects([]);
   };
 
@@ -846,20 +920,29 @@ export default function Home() {
           
           {/* Render drawn objects */}
           {drawnObjects.map((obj, index) => (
-            <mesh
+            <RigidBody
               key={index}
-              geometry={obj.geometry}
+              colliders="hull"
+              mass={obj.physicsProps.mass}
+              restitution={obj.physicsProps.restitution}
+              friction={obj.physicsProps.friction}
+              linearDamping={obj.physicsProps.linearDamping}
+              angularDamping={obj.physicsProps.angularDamping}
               position={obj.position}
-              scale={obj.scale || [1, 1, 1]}
-              castShadow
-              receiveShadow
             >
-              <meshStandardMaterial 
-                color="white"
-                metalness={0.3}
-                roughness={0.4}
-              />
-            </mesh>
+              <mesh
+                geometry={obj.geometry}
+                scale={obj.scale || [1, 1, 1]}
+                castShadow
+                receiveShadow
+              >
+                <meshStandardMaterial 
+                  color={obj.color}
+                  metalness={0.3}
+                  roughness={0.4}
+                />
+              </mesh>
+            </RigidBody>
           ))}
         </Physics>
         <Environment preset="sunset" background/>
