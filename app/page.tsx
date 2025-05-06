@@ -16,10 +16,47 @@ import FlatFloor from '../components/FlatFloor';
 import BoundaryWalls from '../components/BoundaryWalls';
 import CharacterConfigPanel from '../components/CharacterConfigPanel';
 
-
 import { ScreenshotButton } from "../components/ActionButtons";
 import ScreenshotCapture from "../components/ScreenshotCapture";
+import DrawingBoard from '../components/DrawingBoard';
+import DrawnObject from '../components/DrawnObject';
+import { Html } from "@react-three/drei";
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import * as THREE from 'three';
+import Draggable from '../components/Draggable';
 
+interface CharacterConfig {
+  personality: string;
+  biography: string;
+  goals: string;
+  speechStyle: string;
+  customInstructions: string;
+}
+
+interface ChatMessage {
+  sender: string;
+  text: string;
+}
+
+interface SharedMessage {
+  sender: string;
+  target: string;
+  text: string;
+  timestamp: number;
+}
+
+interface DrawnObject {
+  geometries: { geometry: THREE.ExtrudeGeometry; color: string }[];
+  position: [number, number, number];
+  scale?: [number, number, number];
+  physicsProps: {
+    mass: number;
+    restitution: number;
+    friction: number;
+    linearDamping: number;
+    angularDamping: number;
+  };
+}
 
 export default function Home() {
   const characterBodyRef = useRef(null);
@@ -45,7 +82,7 @@ export default function Home() {
   const [character2UserMessage, setCharacter2UserMessage] = useState("");
 
   // Shared conversation history between characters
-  const [sharedConversation, setSharedConversation] = useState([]);
+  const [sharedConversation, setSharedConversation] = useState<SharedMessage[]>([]);
 
   const [currentAnimation, setCurrentAnimation] = useState('idle');
 
@@ -59,9 +96,8 @@ export default function Home() {
   // Add a state variable to track the last dialogue time
   const [lastDialogueTime, setLastDialogueTime] = useState(0);
 
-
   const [userMessage, setUserMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [characterAttributes, setCharacterAttributes] = useState({
     personality: 'Friendly and curious',
     biography: 'An AI explorer discovering this virtual world',
@@ -90,12 +126,12 @@ export default function Home() {
   });
 
   // Add these handler functions
-  const saveCharacter1Config = (newConfig) => {
+  const saveCharacter1Config = (newConfig: CharacterConfig) => {
     setCharacter1Config(newConfig);
     console.log('Saved Character 1 config:', newConfig);
   };
   
-  const saveCharacter2Config = (newConfig) => {
+  const saveCharacter2Config = (newConfig: CharacterConfig) => {
     setCharacter2Config(newConfig);
     console.log('Saved Character 2 config:', newConfig);
   };
@@ -108,12 +144,12 @@ export default function Home() {
   // Add screenshot trigger functions
   const triggerChar1Screenshot = useCallback(() => {
     console.log("Triggering Character 1 screenshot");
-    setCaptureChar1Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+    setCaptureChar1Screenshot(true);
   }, []);
   
   const triggerChar2Screenshot = useCallback(() => {
     console.log("Triggering Character 2 screenshot");
-    setCaptureChar2Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+    setCaptureChar2Screenshot(true);
   }, []);
 
   // Add this function to handle turn transitions
@@ -223,28 +259,16 @@ export default function Home() {
     });
   };
 
-  const handleSendMessage = useCallback(async (message) => {
-    if (!message.trim()) return;
-    
-    // Add user message to chat history and shared conversation
+  const handleUserMessage = (message: string) => {
+    setUserMessage(message);
     setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
-    setSharedConversation(prev => [...prev, { 
-      sender: 'user', 
+    setSharedConversation(prev => [...prev, {
+      sender: 'user',
       target: 'character1',
       text: message,
       timestamp: Date.now()
     }]);
-    
-    // Clear input field
-    setUserMessage("");
-    
-    // Trigger view capture
-    if (!capturingView && !executing) {
-      triggerCapture(message);
-    } else {
-      console.warn("Already processing a request, please wait");
-    }
-  }, [capturingView, executing, triggerCapture]);
+  };
 
   // Handler for sending messages to character 2
   const handleSendMessage2 = useCallback(async (message) => {
@@ -429,38 +453,84 @@ export default function Home() {
     return () => clearInterval(checkPosition);
   }, []);
 
-  // // Toggle between first and third person views
-  // useEffect(() => {
-  //   const handleKeyPress = (e) => {
-  //     console.log("Key pressed:", e.key);
-      
-  //     if (e.key === 'v' || e.key === 'V') {
-  //       console.log("View toggle requested");
-  //       setIsFirstPerson(prev => !prev);
-  //     }
-  //     else if ((e.key === 'c' || e.key === 'C')) {
-  //       console.log("Manual AI capture requested via key");
-  //       if (!capturingView && !executing) {
-  //         triggerCapture();
-  //       } else {
-  //         console.warn("Already capturing or executing, ignoring request");
-  //       }
-  //     }
-  //     else if ((e.key === 'p' || e.key === 'P')) {
-  //       console.log("Auto mode toggle requested via key");
-  //       toggleAutoMode();
-  //     }
-  //   };
-  
-  //   // Use keydown for immediate response
-  //   window.addEventListener('keydown', handleKeyPress);
-  //   console.log("Key event listeners attached");
+  const [drawnObjects, setDrawnObjects] = useState<DrawnObject[]>([]);
+  const [showDrawingBoard, setShowDrawingBoard] = useState(false);
+  const [showObjectList, setShowObjectList] = useState(false);
+
+  const sceneRef = useRef(null);
+
+  const handleDrawingComplete = useCallback((geometries: { geometry: THREE.ExtrudeGeometry; color: string }[], physicsProps: {
+    mass: number;
+    restitution: number;
+    friction: number;
+    linearDamping: number;
+    angularDamping: number;
+  }) => {
+    try {
+      // Add the new object to the drawn objects state
+      setDrawnObjects(prev => [...prev, {
+        geometries,
+        position: [0, 5, 0], // Start slightly above ground
+        scale: [1, 1, 1],
+        physicsProps
+      }]);
+    } catch (error) {
+      console.error('Error creating 3D model:', error);
+    }
+  }, []);
+
+  const deleteDrawnObject = (index: number) => {
+    // Remove all meshes for this object from the scene
+    if (sceneRef.current) {
+      const object = drawnObjects[index];
+      object.geometries.forEach(({ geometry }) => {
+        const mesh = sceneRef.current.children.find(child => 
+          child instanceof THREE.Mesh && 
+          child.geometry === geometry
+        );
+        if (mesh) {
+          sceneRef.current.remove(mesh);
+          // Dispose of geometry and material to free up memory
+          mesh.geometry.dispose();
+          if (mesh.material instanceof THREE.Material) {
+            mesh.material.dispose();
+          } else if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(material => material.dispose());
+          }
+        }
+      });
+    }
     
-  //   return () => {
-  //     window.removeEventListener('keydown', handleKeyPress);
-  //     console.log("Key event listeners removed");
-  //   };
-  // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
+    // Update the state
+    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteAllDrawnObjects = () => {
+    // Remove all meshes from the scene
+    if (sceneRef.current) {
+      drawnObjects.forEach(obj => {
+        obj.geometries.forEach(({ geometry }) => {
+          const mesh = sceneRef.current.children.find(child => 
+            child instanceof THREE.Mesh && 
+            child.geometry === geometry
+          );
+          if (mesh) {
+            sceneRef.current.remove(mesh);
+            // Dispose of geometry and material to free up memory
+            mesh.geometry.dispose();
+            if (mesh.material instanceof THREE.Material) {
+              mesh.material.dispose();
+            } else if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(material => material.dispose());
+            }
+          }
+        });
+      });
+    }
+    
+    // Clear the state
+    setDrawnObjects([]);
+  };
 
   return (
     <div className="w-full h-screen">
@@ -538,7 +608,7 @@ export default function Home() {
             </div>
             
             <ChatInterface 
-              onSendMessage={handleSendMessage}
+              onSendMessage={handleUserMessage}
               userMessage={userMessage}
               setUserMessage={setUserMessage}
               chatHistory={chatHistory}
@@ -663,7 +733,7 @@ export default function Home() {
         )}
       </h3>
       
-      <Canvas shadows>
+      <Canvas shadows onCreated={({ scene }) => { sceneRef.current = scene; }}>
         {/* Default third-person camera */}
         {viewMode === 'thirdPerson' && (
           <PerspectiveCamera
@@ -723,7 +793,7 @@ export default function Home() {
                 bodyRef={characterBodyRef} 
                 currentAnimation={currentAnimation}
                 aiResponse={aiResponse}
-                modelPath="/spiderman.glb"
+                modelPath="/jinx.glb"
               />
             </Suspense>
             <CuboidCollider 
@@ -792,10 +862,112 @@ export default function Home() {
             <BaseMap position={[0,-10,0]} />
           </RigidBody>
           <BoundaryWalls size={20} />
+          
+          {/* Render drawn objects */}
+          {drawnObjects.map((obj, index) => (
+            <Draggable
+              key={index}
+              onDragStart={() => {
+                // Optional: Add any logic you want to execute when dragging starts
+                console.log('Started dragging object', index);
+              }}
+              onDragEnd={() => {
+                // Optional: Add any logic you want to execute when dragging ends
+                console.log('Finished dragging object', index);
+              }}
+            >
+              <RigidBody
+                colliders="hull"
+                mass={obj.physicsProps.mass}
+                restitution={obj.physicsProps.restitution}
+                friction={obj.physicsProps.friction}
+                linearDamping={obj.physicsProps.linearDamping}
+                angularDamping={obj.physicsProps.angularDamping}
+                position={obj.position}
+              >
+                {obj.geometries.map(({ geometry, color }, geomIndex) => (
+                  <mesh
+                    key={geomIndex}
+                    geometry={geometry}
+                    scale={obj.scale || [1, 1, 1]}
+                    castShadow
+                    receiveShadow
+                  >
+                    <meshStandardMaterial 
+                      color={color}
+                      metalness={0.3}
+                      roughness={0.4}
+                    />
+                  </mesh>
+                ))}
+              </RigidBody>
+            </Draggable>
+          ))}
         </Physics>
         <Environment preset="sunset" background/>
       </Suspense>
     </Canvas>
+
+    {showDrawingBoard && (
+      <div className="fixed top-0 right-0 p-4 bg-black bg-opacity-70 text-white rounded-lg shadow-lg z-50">
+        <DrawingBoard 
+          onDrawingComplete={handleDrawingComplete}
+          onClear={() => {
+            // Remove the last drawn object
+            setDrawnObjects(prev => prev.slice(0, -1));
+          }}
+        />
+        <div className="mt-4">
+          <div className="mb-2">
+            <button
+              className="w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded flex items-center justify-between"
+              onClick={() => setShowObjectList(prev => !prev)}
+            >
+              <span className="font-semibold">Drawn Objects ({drawnObjects.length})</span>
+              <span>{showObjectList ? '▼' : '▶'}</span>
+            </button>
+            {showObjectList && (
+              <div className="mt-2 max-h-40 overflow-y-auto border rounded bg-white">
+                {drawnObjects.map((_, index) => (
+                  <div key={index} className="flex items-center justify-between py-1 px-2 hover:bg-gray-100">
+                    <span>Object {index + 1}</span>
+                    <button
+                      className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+                      onClick={() => deleteDrawnObject(index)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {drawnObjects.length > 0 && (
+            <button
+              className="w-full px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              onClick={deleteAllDrawnObjects}
+            >
+              Delete All Objects
+            </button>
+          )}
+        </div>
+        <button
+          className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+          onClick={() => setShowDrawingBoard(false)}
+        >
+          Close Drawing Board
+        </button>
+      </div>
+    )}
+
+    <div className="fixed bottom-4 right-4 z-50">
+      <button
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        onClick={() => setShowDrawingBoard(true)}
+      >
+        Open Drawing Board
+      </button>
+    </div>
     </div>
   );
 }
