@@ -16,14 +16,47 @@ import FlatFloor from '../components/FlatFloor';
 import BoundaryWalls from '../components/BoundaryWalls';
 import CharacterConfigPanel from '../components/CharacterConfigPanel';
 
-
 import { ScreenshotButton } from "../components/ActionButtons";
 import ScreenshotCapture from "../components/ScreenshotCapture";
 import DrawingBoard from '../components/DrawingBoard';
 import DrawnObject from '../components/DrawnObject';
 import { Html } from "@react-three/drei";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import * as THREE from 'three';
+import Draggable from '../components/Draggable';
 
+interface CharacterConfig {
+  personality: string;
+  biography: string;
+  goals: string;
+  speechStyle: string;
+  customInstructions: string;
+}
+
+interface ChatMessage {
+  sender: string;
+  text: string;
+}
+
+interface SharedMessage {
+  sender: string;
+  target: string;
+  text: string;
+  timestamp: number;
+}
+
+interface DrawnObject {
+  geometries: { geometry: THREE.ExtrudeGeometry; color: string }[];
+  position: [number, number, number];
+  scale?: [number, number, number];
+  physicsProps: {
+    mass: number;
+    restitution: number;
+    friction: number;
+    linearDamping: number;
+    angularDamping: number;
+  };
+}
 
 export default function Home() {
   const characterBodyRef = useRef(null);
@@ -49,7 +82,7 @@ export default function Home() {
   const [character2UserMessage, setCharacter2UserMessage] = useState("");
 
   // Shared conversation history between characters
-  const [sharedConversation, setSharedConversation] = useState([]);
+  const [sharedConversation, setSharedConversation] = useState<SharedMessage[]>([]);
 
   const [currentAnimation, setCurrentAnimation] = useState('idle');
 
@@ -63,9 +96,8 @@ export default function Home() {
   // Add a state variable to track the last dialogue time
   const [lastDialogueTime, setLastDialogueTime] = useState(0);
 
-
   const [userMessage, setUserMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [characterAttributes, setCharacterAttributes] = useState({
     personality: 'Friendly and curious',
     biography: 'An AI explorer discovering this virtual world',
@@ -94,12 +126,12 @@ export default function Home() {
   });
 
   // Add these handler functions
-  const saveCharacter1Config = (newConfig) => {
+  const saveCharacter1Config = (newConfig: CharacterConfig) => {
     setCharacter1Config(newConfig);
     console.log('Saved Character 1 config:', newConfig);
   };
   
-  const saveCharacter2Config = (newConfig) => {
+  const saveCharacter2Config = (newConfig: CharacterConfig) => {
     setCharacter2Config(newConfig);
     console.log('Saved Character 2 config:', newConfig);
   };
@@ -112,12 +144,12 @@ export default function Home() {
   // Add screenshot trigger functions
   const triggerChar1Screenshot = useCallback(() => {
     console.log("Triggering Character 1 screenshot");
-    setCaptureChar1Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+    setCaptureChar1Screenshot(true);
   }, []);
   
   const triggerChar2Screenshot = useCallback(() => {
     console.log("Triggering Character 2 screenshot");
-    setCaptureChar2Screenshot(Date.now()); // Use timestamp instead of boolean toggle
+    setCaptureChar2Screenshot(true);
   }, []);
 
   // Add this function to handle turn transitions
@@ -227,28 +259,16 @@ export default function Home() {
     });
   };
 
-  const handleSendMessage = useCallback(async (message) => {
-    if (!message.trim()) return;
-    
-    // Add user message to chat history and shared conversation
+  const handleUserMessage = (message: string) => {
+    setUserMessage(message);
     setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
-    setSharedConversation(prev => [...prev, { 
-      sender: 'user', 
+    setSharedConversation(prev => [...prev, {
+      sender: 'user',
       target: 'character1',
       text: message,
       timestamp: Date.now()
     }]);
-    
-    // Clear input field
-    setUserMessage("");
-    
-    // Trigger view capture
-    if (!capturingView && !executing) {
-      triggerCapture(message);
-    } else {
-      console.warn("Already processing a request, please wait");
-    }
-  }, [capturingView, executing, triggerCapture]);
+  };
 
   // Handler for sending messages to character 2
   const handleSendMessage2 = useCallback(async (message) => {
@@ -433,79 +453,82 @@ export default function Home() {
     return () => clearInterval(checkPosition);
   }, []);
 
-  // // Toggle between first and third person views
-  // useEffect(() => {
-  //   const handleKeyPress = (e) => {
-  //     console.log("Key pressed:", e.key);
-      
-  //     if (e.key === 'v' || e.key === 'V') {
-  //       console.log("View toggle requested");
-  //       setIsFirstPerson(prev => !prev);
-  //     }
-  //     else if ((e.key === 'c' || e.key === 'C')) {
-  //       console.log("Manual AI capture requested via key");
-  //       if (!capturingView && !executing) {
-  //         triggerCapture();
-  //       } else {
-  //         console.warn("Already capturing or executing, ignoring request");
-  //       }
-  //     }
-  //     else if ((e.key === 'p' || e.key === 'P')) {
-  //       console.log("Auto mode toggle requested via key");
-  //       toggleAutoMode();
-  //     }
-  //   };
-  
-  //   // Use keydown for immediate response
-  //   window.addEventListener('keydown', handleKeyPress);
-  //   console.log("Key event listeners attached");
-    
-  //   return () => {
-  //     window.removeEventListener('keydown', handleKeyPress);
-  //     console.log("Key event listeners removed");
-  //   };
-  // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
-
-  const [drawnObjects, setDrawnObjects] = useState<{ geometry: ExtrudeGeometry; position: [number, number, number]; scale?: [number, number, number] }[]>([]);
+  const [drawnObjects, setDrawnObjects] = useState<DrawnObject[]>([]);
   const [showDrawingBoard, setShowDrawingBoard] = useState(false);
   const [showObjectList, setShowObjectList] = useState(false);
 
   const sceneRef = useRef(null);
 
-  const handleDrawingComplete = useCallback((modelUrl) => {
-    // Load the GLB model
-    const loader = new GLTFLoader();
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(1, 1, 1);
-        model.position.set(0, 0, 0);
-        
-        // Add the model to the scene
-        if (sceneRef.current) {
-          sceneRef.current.add(model);
-        }
-        
-        // Add to drawn objects state
-        setDrawnObjects(prev => [...prev, {
-          model,
-          position: [0, 0, 0],
-          scale: [1, 1, 1]
-        }]);
-      },
-      undefined,
-      (error) => {
-        console.error('Error loading model:', error);
-      }
-    );
+  const handleDrawingComplete = useCallback((geometries: { geometry: THREE.ExtrudeGeometry; color: string }[], physicsProps: {
+    mass: number;
+    restitution: number;
+    friction: number;
+    linearDamping: number;
+    angularDamping: number;
+  }) => {
+    try {
+      // Add the new object to the drawn objects state
+      setDrawnObjects(prev => [...prev, {
+        geometries,
+        position: [0, 5, 0], // Start slightly above ground
+        scale: [1, 1, 1],
+        physicsProps
+      }]);
+    } catch (error) {
+      console.error('Error creating 3D model:', error);
+    }
   }, []);
 
   const deleteDrawnObject = (index: number) => {
+    // Remove all meshes for this object from the scene
+    if (sceneRef.current) {
+      const object = drawnObjects[index];
+      object.geometries.forEach(({ geometry }) => {
+        const mesh = sceneRef.current.children.find(child => 
+          child instanceof THREE.Mesh && 
+          child.geometry === geometry
+        );
+        if (mesh) {
+          sceneRef.current.remove(mesh);
+          // Dispose of geometry and material to free up memory
+          mesh.geometry.dispose();
+          if (mesh.material instanceof THREE.Material) {
+            mesh.material.dispose();
+          } else if (Array.isArray(mesh.material)) {
+            mesh.material.forEach(material => material.dispose());
+          }
+        }
+      });
+    }
+    
+    // Update the state
     setDrawnObjects(prev => prev.filter((_, i) => i !== index));
   };
 
   const deleteAllDrawnObjects = () => {
+    // Remove all meshes from the scene
+    if (sceneRef.current) {
+      drawnObjects.forEach(obj => {
+        obj.geometries.forEach(({ geometry }) => {
+          const mesh = sceneRef.current.children.find(child => 
+            child instanceof THREE.Mesh && 
+            child.geometry === geometry
+          );
+          if (mesh) {
+            sceneRef.current.remove(mesh);
+            // Dispose of geometry and material to free up memory
+            mesh.geometry.dispose();
+            if (mesh.material instanceof THREE.Material) {
+              mesh.material.dispose();
+            } else if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(material => material.dispose());
+            }
+          }
+        });
+      });
+    }
+    
+    // Clear the state
     setDrawnObjects([]);
   };
 
@@ -585,7 +608,7 @@ export default function Home() {
             </div>
             
             <ChatInterface 
-              onSendMessage={handleSendMessage}
+              onSendMessage={handleUserMessage}
               userMessage={userMessage}
               setUserMessage={setUserMessage}
               chatHistory={chatHistory}
@@ -842,16 +865,43 @@ export default function Home() {
           
           {/* Render drawn objects */}
           {drawnObjects.map((obj, index) => (
-            <mesh
+            <Draggable
               key={index}
-              geometry={obj.geometry}
-              position={obj.position}
-              scale={obj.scale || [0.1, 0.1, 0.1]}
-              castShadow
-              receiveShadow
+              onDragStart={() => {
+                // Optional: Add any logic you want to execute when dragging starts
+                console.log('Started dragging object', index);
+              }}
+              onDragEnd={() => {
+                // Optional: Add any logic you want to execute when dragging ends
+                console.log('Finished dragging object', index);
+              }}
             >
-              <meshStandardMaterial color="white" />
-            </mesh>
+              <RigidBody
+                colliders="hull"
+                mass={obj.physicsProps.mass}
+                restitution={obj.physicsProps.restitution}
+                friction={obj.physicsProps.friction}
+                linearDamping={obj.physicsProps.linearDamping}
+                angularDamping={obj.physicsProps.angularDamping}
+                position={obj.position}
+              >
+                {obj.geometries.map(({ geometry, color }, geomIndex) => (
+                  <mesh
+                    key={geomIndex}
+                    geometry={geometry}
+                    scale={obj.scale || [1, 1, 1]}
+                    castShadow
+                    receiveShadow
+                  >
+                    <meshStandardMaterial 
+                      color={color}
+                      metalness={0.3}
+                      roughness={0.4}
+                    />
+                  </mesh>
+                ))}
+              </RigidBody>
+            </Draggable>
           ))}
         </Physics>
         <Environment preset="sunset" background/>
