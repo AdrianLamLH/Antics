@@ -467,11 +467,10 @@ export default function Home() {
   //   };
   // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
 
-  const [drawnObjects, setDrawnObjects] = useState<{ 
-    geometry: THREE.ExtrudeGeometry; 
-    position: [number, number, number]; 
-    scale?: [number, number, number];
-    color: string;
+  const [drawnObjects, setDrawnObjects] = useState<{
+    geometries: { geometry: THREE.ExtrudeGeometry; color: string }[];
+    position: [number, number, number];
+    scale: [number, number, number];
     physicsProps: {
       mass: number;
       restitution: number;
@@ -485,7 +484,7 @@ export default function Home() {
 
   const sceneRef = useRef(null);
 
-  const handleDrawingComplete = useCallback((geometry: THREE.ExtrudeGeometry, color: string, physicsProps: {
+  const handleDrawingComplete = useCallback((geometries: { geometry: THREE.ExtrudeGeometry; color: string }[], physicsProps: {
     mass: number;
     restitution: number;
     friction: number;
@@ -493,27 +492,26 @@ export default function Home() {
     angularDamping: number;
   }) => {
     try {
-      // Create a material for the geometry
-      const material = new THREE.MeshStandardMaterial({ 
-        color: new THREE.Color(color),
-        metalness: 0.3,
-        roughness: 0.4,
+      // Create meshes for each geometry with its corresponding color
+      const meshes = geometries.map(({ geometry, color }) => {
+        const material = new THREE.MeshStandardMaterial({ 
+          color: new THREE.Color(color),
+          metalness: 0.3,
+          roughness: 0.4,
+        });
+        return new THREE.Mesh(geometry, material);
       });
-
-      // Create a mesh from the geometry and material
-      const mesh = new THREE.Mesh(geometry, material);
       
-      // Add the new mesh to the scene
+      // Add all meshes to the scene
       if (sceneRef.current) {
-        sceneRef.current.add(mesh);
+        meshes.forEach(mesh => sceneRef.current.add(mesh));
       }
       
       // Add the new object to the drawn objects state
       setDrawnObjects(prev => [...prev, {
-        geometry,
+        geometries,
         position: [0, 5, 0], // Start slightly above ground
         scale: [1, 1, 1],
-        color,
         physicsProps
       }]);
     } catch (error) {
@@ -522,35 +520,13 @@ export default function Home() {
   }, []);
 
   const deleteDrawnObject = (index: number) => {
-    // Remove the mesh from the scene
+    // Remove all meshes for this object from the scene
     if (sceneRef.current) {
-      const mesh = sceneRef.current.children.find(child => 
-        child instanceof THREE.Mesh && 
-        child.geometry === drawnObjects[index].geometry
-      );
-      if (mesh) {
-        sceneRef.current.remove(mesh);
-        // Dispose of geometry and material to free up memory
-        mesh.geometry.dispose();
-        if (mesh.material instanceof THREE.Material) {
-          mesh.material.dispose();
-        } else if (Array.isArray(mesh.material)) {
-          mesh.material.forEach(material => material.dispose());
-        }
-      }
-    }
-    
-    // Update the state
-    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const deleteAllDrawnObjects = () => {
-    // Remove all meshes from the scene
-    if (sceneRef.current) {
-      drawnObjects.forEach(obj => {
+      const object = drawnObjects[index];
+      object.geometries.forEach(({ geometry }) => {
         const mesh = sceneRef.current.children.find(child => 
           child instanceof THREE.Mesh && 
-          child.geometry === obj.geometry
+          child.geometry === geometry
         );
         if (mesh) {
           sceneRef.current.remove(mesh);
@@ -562,6 +538,33 @@ export default function Home() {
             mesh.material.forEach(material => material.dispose());
           }
         }
+      });
+    }
+    
+    // Update the state
+    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteAllDrawnObjects = () => {
+    // Remove all meshes from the scene
+    if (sceneRef.current) {
+      drawnObjects.forEach(obj => {
+        obj.geometries.forEach(({ geometry }) => {
+          const mesh = sceneRef.current.children.find(child => 
+            child instanceof THREE.Mesh && 
+            child.geometry === geometry
+          );
+          if (mesh) {
+            sceneRef.current.remove(mesh);
+            // Dispose of geometry and material to free up memory
+            mesh.geometry.dispose();
+            if (mesh.material instanceof THREE.Material) {
+              mesh.material.dispose();
+            } else if (Array.isArray(mesh.material)) {
+              mesh.material.forEach(material => material.dispose());
+            }
+          }
+        });
       });
     }
     
@@ -912,18 +915,21 @@ export default function Home() {
               angularDamping={obj.physicsProps.angularDamping}
               position={obj.position}
             >
-              <mesh
-                geometry={obj.geometry}
-                scale={obj.scale || [1, 1, 1]}
-                castShadow
-                receiveShadow
-              >
-                <meshStandardMaterial 
-                  color={obj.color}
-                  metalness={0.3}
-                  roughness={0.4}
-                />
-              </mesh>
+              {obj.geometries.map(({ geometry, color }, geomIndex) => (
+                <mesh
+                  key={geomIndex}
+                  geometry={geometry}
+                  scale={obj.scale || [1, 1, 1]}
+                  castShadow
+                  receiveShadow
+                >
+                  <meshStandardMaterial 
+                    color={color}
+                    metalness={0.3}
+                    roughness={0.4}
+                  />
+                </mesh>
+              ))}
             </RigidBody>
           ))}
         </Physics>

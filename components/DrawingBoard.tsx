@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { ExtrudeGeometry, Shape } from 'three';
 
 interface DrawingBoardProps {
-  onDrawingComplete: (geometry: THREE.ExtrudeGeometry, color: string, physicsProps: {
+  onDrawingComplete: (geometries: { geometry: THREE.ExtrudeGeometry; color: string }[], physicsProps: {
     mass: number;
     restitution: number;
     friction: number;
@@ -136,43 +136,55 @@ const DrawingBoard = ({ onDrawingComplete, onClear }: DrawingBoardProps) => {
   const convertTo3D = () => {
     if (paths.length === 0) return;
 
-    // Create a shape from all paths
-    const shape = new THREE.Shape();
-    let isFirstPath = true;
-
-    // Combine all paths into a single shape
-    paths.forEach(path => {
-      if (path.points.length > 0) {
-        // Normalize points to be between -1 and 1
-        const normalizedPoints = path.points.map(point => ({
-          x: (point.x / 200) - 1,
-          y: -((point.y / 200) - 1)
-        }));
-
-        if (isFirstPath) {
-          shape.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
-          isFirstPath = false;
-        } else {
-          shape.lineTo(normalizedPoints[0].x, normalizedPoints[0].y);
-        }
-
-        normalizedPoints.slice(1).forEach(point => {
-          shape.lineTo(point.x, point.y);
-        });
+    // Group paths by color
+    const pathsByColor = paths.reduce((acc, path) => {
+      if (!acc[path.color]) {
+        acc[path.color] = [];
       }
+      acc[path.color].push(path);
+      return acc;
+    }, {} as Record<string, typeof paths>);
+
+    // Create a shape for each color group
+    const geometries = Object.entries(pathsByColor).map(([color, colorPaths]) => {
+      const shape = new THREE.Shape();
+      let isFirstPath = true;
+
+      // Combine all paths of the same color into a single shape
+      colorPaths.forEach(path => {
+        if (path.points.length > 0) {
+          // Normalize points to be between -1 and 1
+          const normalizedPoints = path.points.map(point => ({
+            x: (point.x / 200) - 1,
+            y: -((point.y / 200) - 1)
+          }));
+
+          if (isFirstPath) {
+            shape.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
+            isFirstPath = false;
+          } else {
+            shape.lineTo(normalizedPoints[0].x, normalizedPoints[0].y);
+          }
+
+          normalizedPoints.slice(1).forEach(point => {
+            shape.lineTo(point.x, point.y);
+          });
+        }
+      });
+
+      // Create 3D geometry
+      const extrudeSettings = {
+        steps: 1,
+        depth: 0.5,
+        bevelEnabled: true,
+        bevelThickness: 0.1,
+        bevelSize: 0.1,
+        bevelSegments: 3
+      };
+
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      return { geometry, color };
     });
-
-    // Create 3D geometry
-    const extrudeSettings = {
-      steps: 1,
-      depth: 0.5,
-      bevelEnabled: true,
-      bevelThickness: 0.1,
-      bevelSize: 0.1,
-      bevelSegments: 3
-    };
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
 
     // Define physics properties
     const physicsProps = {
@@ -183,8 +195,7 @@ const DrawingBoard = ({ onDrawingComplete, onClear }: DrawingBoardProps) => {
       angularDamping: 0.9  // High angular damping to prevent spinning
     };
 
-    // Use the color of the first path for the entire object
-    onDrawingComplete(geometry, paths[0].color, physicsProps);
+    onDrawingComplete(geometries, physicsProps);
   };
 
   const deletePath = (index: number) => {
