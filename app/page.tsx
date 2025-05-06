@@ -503,31 +503,13 @@ export default function Home() {
       // Create a mesh from the geometry and material
       const mesh = new THREE.Mesh(geometry, material);
       
-      // Remove any existing drawn objects from the scene
-      if (sceneRef.current) {
-        // Find and remove any existing meshes
-        const existingMeshes = sceneRef.current.children.filter(child => 
-          child instanceof THREE.Mesh
-        );
-        
-        existingMeshes.forEach(mesh => {
-          sceneRef.current.remove(mesh);
-          mesh.geometry.dispose();
-          if (mesh.material instanceof THREE.Material) {
-            mesh.material.dispose();
-          } else if (Array.isArray(mesh.material)) {
-            mesh.material.forEach(material => material.dispose());
-          }
-        });
-      }
-      
       // Add the new mesh to the scene
       if (sceneRef.current) {
         sceneRef.current.add(mesh);
       }
       
-      // Replace the drawn objects state with the new object
-      setDrawnObjects([{
+      // Add the new object to the drawn objects state
+      setDrawnObjects(prev => [...prev, {
         geometry,
         position: [0, 5, 0], // Start slightly above ground
         scale: [1, 1, 1],
