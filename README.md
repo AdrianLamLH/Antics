@@ -41,10 +41,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-Next, run the blender server using:
-```bash
-blender --background --python blender-server.py
+## Configuration
+
+The project uses the following Next.js configuration:
+
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: false, // Temporarily disable to test if this is the issue
+}
+
+module.exports = nextConfig
 ```
+
+Place this in `next.config.js` at the root of your project to resolve duplicate rendering issues.
 
 ## Current Status
 The project is in early development. We have successfully implemented:
