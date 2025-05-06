@@ -62,6 +62,7 @@ The project is in early development. We have successfully implemented:
 - Character physics and movement
 - Character position tracking
 - Auto-reset mechanism for characters falling out of bounds
+- Basic 2D -> 3D object creation
 
 ## Next Steps
 - Implement drawing-to-character conversion
