@@ -185,9 +185,6 @@ const DrawingBoard = ({ onDrawingComplete, onClear }: DrawingBoardProps) => {
 
     // Use the color of the first path for the entire object
     onDrawingComplete(geometry, paths[0].color, physicsProps);
-    
-    // Clear the canvas after converting to 3D
-    clearCanvas();
   };
 
   const deletePath = (index: number) => {
