@@ -8,36 +8,23 @@ export async function POST(request) {
     // Remove the data URL prefix if present
     const base64Image = imageData.replace(/^data:image\/\w+;base64,/, '');
     console.log('Base64 image length:', base64Image.length);
+    
     const claudePrompt = `
-        Analyze this drawing and generate Blender Python commands to create a 3D model.
+        Analyze this drawing and generate Three.js code to create a 3D model.
         Focus on the main shapes and forms.
-        Return *ONLY* the Blender Python code.  Do NOT include any comments or explanations.
+        Return *ONLY* the Three.js code. Do NOT include any comments or explanations.
         Do NOT add any text before or after the code block.
-        Use bpy.ops for all operations.
-        Start with a simple cube or sphere as a base shape.
-
+        
         IMPORTANT:
-        1.  Do NOT assume any objects or modifiers exist. Always check before accessing.
-        2.  If you need a Subdivision Surface modifier, use the get_or_add_modifier function 
-            (provided in the Blender script) like this:
-            \`\`\`python
-            subsurf_mod = get_or_add_modifier("ObjectName", 'SUBSURF', "MySubsurf")
-            if subsurf_mod:
-                subsurf_mod.levels = 2
-                subsurf_mod.render_levels = 3
-            \`\`\`
-            Replace "ObjectName" with the actual name of the object.  
-            Name the modifier "MySubsurf" consistently.
-        3.  If you create an object, store a reference to it in a variable immediately.
-            Example: \`\`\`python new_object = bpy.ops.mesh.primitive_cube_add(location=(0, 0, 0))\`\`\`
-            Then, access it using bpy.data.objects['ObjectName'].
-        4.  Set the active object before performing operations on it:
-            \`\`\`python bpy.context.view_layer.objects.active = bpy.data.objects['ObjectName']\`\`\`
-        5.  Be mindful of Blender's modes (Object Mode, Edit Mode).  Switch modes if necessary:
-            \`\`\`python bpy.ops.object.mode_set(mode='EDIT')\`\`\`
-        6.  Use precise data types.  Colors are tuples of floats (e.g., (1.0, 0.0, 0.0, 1.0) for red).
-        7.  If you have any doubts, prioritize robustness and error handling over conciseness.
+        1. Use standard Three.js geometries and materials
+        2. Include proper scene setup, camera, and lighting
+        3. Export the code as a function that returns the scene object
+        4. Use proper Three.js naming conventions
+        5. Include proper error handling
+        6. Use precise data types for colors (THREE.Color)
+        7. If you have any doubts, prioritize robustness over conciseness
     `;
+
     // Call Claude 3 Sonnet to analyze the drawing
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -92,36 +79,12 @@ export async function POST(request) {
       );
     }
 
-    const blenderCommands = claudeData.content[0].text;
-    console.log('Blender commands from Claude:', blenderCommands);
-
-    // Execute Blender commands
-    const blenderResponse = await fetch('http://localhost:5001/execute-blender', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        commands: blenderCommands
-      })
-    });
-
-    if (!blenderResponse.ok) {
-      const errorData = await blenderResponse.json();
-      console.error('Blender server error:', errorData);
-      return NextResponse.json(
-        { error: 'Failed to execute Blender commands', details: errorData },
-        { status: 500 }
-      );
-    }
-
-    const blenderData = await blenderResponse.json();
-    console.log('Blender response:', blenderData);
+    const threeJsCode = claudeData.content[0].text;
+    console.log('Three.js code from Claude:', threeJsCode);
 
     return NextResponse.json({
       success: true,
-      modelUrl: blenderData.modelUrl,
-      previewUrl: blenderData.previewUrl
+      threeJsCode: threeJsCode
     });
   } catch (error) {
     console.error('Error converting drawing:', error);

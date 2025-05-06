@@ -23,6 +23,7 @@ import DrawingBoard from '../components/DrawingBoard';
 import DrawnObject from '../components/DrawnObject';
 import { Html } from "@react-three/drei";
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import * as THREE from 'three';
 
 
 export default function Home() {
@@ -466,39 +467,42 @@ export default function Home() {
   //   };
   // }, [capturingView, executing, triggerCapture, toggleAutoMode]);
 
-  const [drawnObjects, setDrawnObjects] = useState<{ geometry: ExtrudeGeometry; position: [number, number, number]; scale?: [number, number, number] }[]>([]);
+  const [drawnObjects, setDrawnObjects] = useState<{ 
+    geometry: THREE.ExtrudeGeometry; 
+    position: [number, number, number]; 
+    scale?: [number, number, number] 
+  }[]>([]);
   const [showDrawingBoard, setShowDrawingBoard] = useState(false);
   const [showObjectList, setShowObjectList] = useState(false);
 
   const sceneRef = useRef(null);
 
-  const handleDrawingComplete = useCallback((modelUrl) => {
-    // Load the GLB model
-    const loader = new GLTFLoader();
-    loader.load(
-      modelUrl,
-      (gltf) => {
-        const model = gltf.scene;
-        model.scale.set(1, 1, 1);
-        model.position.set(0, 0, 0);
-        
-        // Add the model to the scene
-        if (sceneRef.current) {
-          sceneRef.current.add(model);
-        }
-        
-        // Add to drawn objects state
-        setDrawnObjects(prev => [...prev, {
-          model,
-          position: [0, 0, 0],
-          scale: [1, 1, 1]
-        }]);
-      },
-      undefined,
-      (error) => {
-        console.error('Error loading model:', error);
+  const handleDrawingComplete = useCallback((geometry: THREE.ExtrudeGeometry) => {
+    try {
+      // Create a material for the geometry
+      const material = new THREE.MeshStandardMaterial({ 
+        color: 0xffffff,
+        metalness: 0.3,
+        roughness: 0.4,
+      });
+
+      // Create a mesh from the geometry and material
+      const mesh = new THREE.Mesh(geometry, material);
+      
+      // Add the mesh to the scene
+      if (sceneRef.current) {
+        sceneRef.current.add(mesh);
       }
-    );
+      
+      // Add to drawn objects state
+      setDrawnObjects(prev => [...prev, {
+        geometry,
+        position: [0, 0, 0],
+        scale: [1, 1, 1]
+      }]);
+    } catch (error) {
+      console.error('Error creating 3D model:', error);
+    }
   }, []);
 
   const deleteDrawnObject = (index: number) => {
@@ -846,11 +850,15 @@ export default function Home() {
               key={index}
               geometry={obj.geometry}
               position={obj.position}
-              scale={obj.scale || [0.1, 0.1, 0.1]}
+              scale={obj.scale || [1, 1, 1]}
               castShadow
               receiveShadow
             >
-              <meshStandardMaterial color="white" />
+              <meshStandardMaterial 
+                color="white"
+                metalness={0.3}
+                roughness={0.4}
+              />
             </mesh>
           ))}
         </Physics>
