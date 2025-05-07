@@ -19,6 +19,25 @@ export default function ChatInterface({
     }
   }, [chatHistory, aiResponse]);
   
+  // Add a useEffect to log when props change
+  useEffect(() => {
+    console.log(`ChatInterface ${characterId} - New chat history:`, chatHistory);
+  }, [chatHistory, characterId]);
+
+  useEffect(() => {
+    if (aiResponse?.speech) {
+      console.log(`ChatInterface ${characterId} - New aiResponse:`, aiResponse.speech);
+      
+      // Check if this response is already in the chat history
+      const isDuplicate = chatHistory.some(msg => 
+        msg.text === aiResponse.speech && 
+        (msg.sender === 'ai' || msg.sender === characterId)
+      );
+      
+      console.log(`ChatInterface ${characterId} - Is aiResponse a duplicate? ${isDuplicate}`);
+    }
+  }, [aiResponse, chatHistory, characterId]);
+  
   // Handle input submission
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -44,21 +63,24 @@ export default function ChatInterface({
   return (
     <div className="bg-black bg-opacity-70 rounded-md p-3 max-h-60 overflow-y-auto w-full">
       <div className="space-y-2">
-        {/* Display chat history */}
-        {chatHistory.map((msg, index) => (
-          <div 
-            key={msg.id || `msg-${index}-${msg.timestamp || Date.now()}`} 
-            className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}
-          >
-            <p className="text-sm text-gray-300">
-              {getSenderName(msg.sender)}:
-            </p>
-            <p className="text-white">{msg.text}</p>
-          </div>
-        ))}
+        {/* Log and display chat history */}
+        {chatHistory.map((msg, index) => {
+          console.log(`Rendering message ${index}:`, msg);
+          return (
+            <div 
+              key={msg.id || `msg-${index}-${msg.timestamp || Date.now()}`} 
+              className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}
+            >
+              <p className="text-sm text-gray-300">
+                {getSenderName(msg.sender)}:
+              </p>
+              <p className="text-white">{msg.text}</p>
+            </div>
+          );
+        })}
         
-        {/* Display latest AI response if not in history */}
-        {aiResponse && aiResponse.speech && (
+        {/* Only show aiResponse if it's not already in chatHistory */}
+        {aiResponse && aiResponse.speech && !chatHistory.some(msg => msg.text === aiResponse.speech) && (
           <div className={`px-2 py-1 rounded ${getCharacterColor(characterId)}`}>
             <p className="text-sm text-gray-300">{getSenderName(characterId)}:</p>
             <p className="text-white">{aiResponse.speech}</p>
