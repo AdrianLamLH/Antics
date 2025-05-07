@@ -923,7 +923,7 @@ export default function Home() {
               className="w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded flex items-center justify-between"
               onClick={() => setShowObjectList(prev => !prev)}
             >
-              <span className="font-semibold">Drawn Objects ({drawnObjects.length})</span>
+              <span className="font-semibold">3D Render Objects ({drawnObjects.length})</span>
               <span>{showObjectList ? '▼' : '▶'}</span>
             </button>
             {showObjectList && (
