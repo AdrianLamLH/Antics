@@ -260,7 +260,10 @@ export default function Home() {
   };
 
   const handleUserMessage = (message: string) => {
-    setUserMessage(message);
+    if (!message.trim()) return;
+    
+    setUserMessage("");  // Clear input field first
+    
     setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
     setSharedConversation(prev => [...prev, {
       sender: 'user',
@@ -268,6 +271,13 @@ export default function Home() {
       text: message,
       timestamp: Date.now()
     }]);
+    
+    // Add this line to trigger the AI response
+    if (!capturingView && !executing) {
+      triggerCapture(message);
+    } else {
+      console.warn("Already processing a request, please wait");
+    }
   };
 
   // Handler for sending messages to character 2
@@ -309,21 +319,17 @@ export default function Home() {
     // Add AI response to shared conversation
     if (state.aiResponse && state.aiResponse.speech) {
       setSharedConversation(prev => {
-        // Check if this exact message is already in the conversation
+        // Check if this message is already in the conversation
         const isDuplicate = prev.some(msg => 
-          msg.sender === 'character1' && 
-          msg.text === state.aiResponse.speech &&
-          // Consider messages within 2 seconds as duplicates
-          Date.now() - msg.timestamp < 2000
+          msg.text === state.aiResponse.speech
         );
         
-        // Only add if not a duplicate
         if (!isDuplicate) {
           return [...prev, {
             sender: 'character1',
             text: state.aiResponse.speech,
             timestamp: Date.now(),
-            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
+            id: `ai-${Date.now()}`
           }];
         }
         return prev;
@@ -376,21 +382,17 @@ export default function Home() {
     // Add AI response to shared conversation
     if (state.aiResponse && state.aiResponse.speech) {
       setSharedConversation(prev => {
-        // Check if this exact message is already in the conversation
+        // Check if this message is already in the conversation
         const isDuplicate = prev.some(msg => 
-          msg.sender === 'character2' && 
-          msg.text === state.aiResponse.speech &&
-          // Consider messages within 2 seconds as duplicates
-          Date.now() - msg.timestamp < 2000
+          msg.text === state.aiResponse.speech
         );
         
-        // Only add if not a duplicate
         if (!isDuplicate) {
           return [...prev, {
             sender: 'character2',
             text: state.aiResponse.speech,
             timestamp: Date.now(),
-            id: Date.now() + Math.random().toString(36).substr(2, 5) // Add unique ID
+            id: `ai-${Date.now()}`
           }];
         }
         return prev;
