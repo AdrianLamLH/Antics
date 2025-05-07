@@ -260,7 +260,10 @@ export default function Home() {
   };
 
   const handleUserMessage = (message: string) => {
-    setUserMessage(message);
+    if (!message.trim()) return;
+    
+    setUserMessage("");  // Clear input field first
+    
     setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
     setSharedConversation(prev => [...prev, {
       sender: 'user',
@@ -268,6 +271,13 @@ export default function Home() {
       text: message,
       timestamp: Date.now()
     }]);
+    
+    // Add this line to trigger the AI response
+    if (!capturingView && !executing) {
+      triggerCapture(message);
+    } else {
+      console.warn("Already processing a request, please wait");
+    }
   };
 
   // Handler for sending messages to character 2
