@@ -34,7 +34,7 @@ const DrawnObject: React.FC<DrawnObjectProps> = ({
       castShadow
       receiveShadow
     >
-      <meshStandardMaterial color="white" />
+      <meshStandardMaterial vertexColors />
     </mesh>
   );
 };
