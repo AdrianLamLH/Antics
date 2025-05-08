@@ -4,11 +4,15 @@ export async function requestAIActions(
   userMessage,
   conversationContext,
   characterId,
-  characterConfig
+  characterConfig,
+  characterPositions = null
 ) {  
   try {
     console.log("Making AI request with context summary:", conversationContext);
     console.log("Character config for request:", characterConfig);
+    if (characterPositions) {
+      console.log("Character positions for request:", characterPositions);
+    }
     
     const response = await fetch('/api/ai-character', {
       method: 'POST',
@@ -21,7 +25,8 @@ export async function requestAIActions(
         userMessage: userMessage,
         conversationContext, // Include previous interactions
         characterId: characterId,
-        characterConfig // Include the config in the request
+        characterConfig, // Include the config in the request
+        characterPositions // Include the positions data
       }),
     });
 
