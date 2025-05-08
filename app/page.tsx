@@ -259,25 +259,41 @@ export default function Home() {
     });
   };
 
-  const handleUserMessage = useCallback((message: string) => {
+  const handleUserMessage = useCallback((message: string, target: string = "everyone") => {
     if (!message.trim()) return;    
 
+    // Create a unique ID
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    // Add to shared conversation with target info
     setSharedConversation(prev => [...prev, {
       sender: 'user',
-      target: 'character1',
+      target: target,
       text: message,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      id: messageId
     }]);
 
-    setUserMessage("");  // Clear input field first
+    setUserMessage("");  // Clear input field
     
-    // Add this line to trigger the AI response
-    if (!capturingView && !executing) {
+    // Trigger the appropriate AI response(s) based on target
+    if (target === "everyone") {
+      // Send to both characters
+      if (!capturingView && !executing) {
+        triggerCapture(message);
+      }
+      if (!character2CapturingView && !character2Executing) {
+        triggerCapture2(message);
+      }
+    } else if (target === "character1" && !capturingView && !executing) {
       triggerCapture(message);
+    } else if (target === "character2" && !character2CapturingView && !character2Executing) {
+      triggerCapture2(message);
     } else {
-      console.warn("Already processing a request, please wait");
+      console.warn(`Character ${target} is busy or invalid target`);
     }
-  }, [capturingView, executing, triggerCapture]);
+  }, [capturingView, executing, character2CapturingView, character2Executing, 
+      triggerCapture, triggerCapture2]);
 
   // Handler for sending messages to character 2
   const handleSendMessage2 = useCallback(async (message) => {
@@ -571,105 +587,75 @@ export default function Home() {
         </button>
       </div> */}
 
-      {/* Add UI for dual chat interfaces */}
-      <div className="absolute bottom-20 left-4 z-10 grid grid-cols-2 gap-4 w-3/4 max-w-4xl">
-        {/* Character 1 Chat Interface */}
-        <div>
-          <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 1</h3>
-          <button 
+      {/* Replace the dual chat interfaces with a single unified one */}
+      <div className="absolute bottom-20 left-4 right-4 z-10 max-w-4xl mx-auto">
+        <div className="mb-2 flex justify-between items-center bg-black bg-opacity-70 p-2 rounded-t-md">
+          <h3 className="text-white">Unified Chat</h3>
+          <div className="flex gap-2">
+            <button 
               onClick={() => setShowCharacter1Config(true)}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
             >
-              Configure
+              Configure Character 1
             </button>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2 mt-2">
-              <AIActionButton 
-                isFirstPerson={false}
-                capturingView={capturingView}
-                executing={executing}
-                triggerCapture={() => triggerCapture()} // No message, just observation
-              />
-              
-              <button 
-                className={`px-4 py-2 rounded-md ${
-                  autoMode 
-                    ? "bg-green-600 hover:bg-green-700" 
-                    : "bg-black bg-opacity-70 hover:bg-opacity-80"
-                } text-white`}
-                onClick={toggleAutoMode}
-              >
-                {autoMode ? "Auto Mode: ON" : "Auto Mode: OFF"}
-              </button>
-              {/* Add screenshot button */}
-              <ScreenshotButton 
-                onClick={triggerChar1Screenshot} 
-                characterId="character1" 
-              />
-            </div>
-            
-            <ChatInterface 
-              onSendMessage={handleUserMessage}
-              userMessage={userMessage}
-              setUserMessage={setUserMessage}
-              chatHistory={chatHistory}
-              aiResponse={aiResponse}
-              capturingView={capturingView}
-              executing={executing}
-              characterId="character1"
-            />
+            <button 
+              onClick={() => setShowCharacter2Config(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+            >
+              Configure Character 2
+            </button>
           </div>
         </div>
         
-        {/* Character 2 Chat Interface */}
-        <div>
-          <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md">Character 2</h3>
+        <div className="flex gap-2 mb-2">
+          <AIActionButton 
+            isFirstPerson={false}
+            capturingView={capturingView || character2CapturingView}
+            executing={executing || character2Executing}
+            triggerCapture={() => {}} // Disabled in unified view
+          />
+          
           <button 
-              onClick={() => setShowCharacter2Config(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
-            >
-              Configure
+            className={`px-4 py-2 rounded-md ${
+              autoDialogueMode 
+                ? "bg-purple-600 hover:bg-purple-700" 
+                : "bg-black bg-opacity-70 hover:bg-opacity-80"
+            } text-white`}
+            onClick={() => autoDialogueMode ? stopAutoDialogue() : startAutoDialogue()}
+          >
+            {autoDialogueMode ? "Stop Auto Dialogue" : "Start Auto Dialogue"}
           </button>
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2 mt-2">
-              <AIActionButton 
-                isFirstPerson={false}
-                capturingView={character2CapturingView}
-                executing={character2Executing}
-                triggerCapture={() => triggerCapture2()} // No message, just observation
-              />
-              
-              <button 
-                className={`px-4 py-2 rounded-md ${
-                  character2AutoMode 
-                    ? "bg-green-600 hover:bg-green-700" 
-                    : "bg-black bg-opacity-70 hover:bg-opacity-80"
-                } text-white`}
-                onClick={toggleAutoMode2}
-              >
-                {character2AutoMode ? "Auto Mode: ON" : "Auto Mode: OFF"}
-              </button>
-              {/* Add screenshot button */}
-              <ScreenshotButton 
-                onClick={triggerChar2Screenshot} 
-                characterId="character2" 
-              />
-            </div>
-            
-            <ChatInterface 
-              onSendMessage={handleSendMessage2}
-              userMessage={character2UserMessage}
-              setUserMessage={setCharacter2UserMessage}
-              chatHistory={sharedConversation.filter(msg => 
-                msg.sender === 'character2' || msg.target === 'character2'
-              )}
-              aiResponse={character2AiResponse}
-              capturingView={character2CapturingView}
-              executing={character2Executing}
-              characterId="character2"
-            />
+          
+          <div className="flex items-center gap-1 text-white bg-black bg-opacity-70 px-2 rounded">
+            <span className={`h-2 w-2 rounded-full ${capturingView || executing ? 'bg-yellow-500' : 'bg-green-500'}`}></span>
+            <span className="text-xs">Character 1: {capturingView || executing ? 'Busy' : 'Ready'}</span>
+          </div>
+          
+          <div className="flex items-center gap-1 text-white bg-black bg-opacity-70 px-2 rounded">
+            <span className={`h-2 w-2 rounded-full ${character2CapturingView || character2Executing ? 'bg-yellow-500' : 'bg-green-500'}`}></span>
+            <span className="text-xs">Character 2: {character2CapturingView || character2Executing ? 'Busy' : 'Ready'}</span>
           </div>
         </div>
+        
+        <ChatInterface 
+          onSendMessage={handleUserMessage}
+          userMessage={userMessage}
+          setUserMessage={setUserMessage}
+          chatHistory={sharedConversation}
+          aiResponses={{
+            character1: aiResponse,
+            character2: character2AiResponse
+          }}
+          capturingViews={{
+            character1: capturingView,
+            character2: character2CapturingView
+          }}
+          executings={{
+            character1: executing,
+            character2: character2Executing
+          }}
+          characterIds={["character1", "character2"]}
+        />
       </div>
 
       {/* Configuration Panels */}
@@ -705,35 +691,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Update instructions to remove key press references */}
-      <div className="absolute bottom-4 right-4 z-10 bg-black bg-opacity-70 text-white p-3 rounded-md max-w-xs">
-        <h3 className="font-bold mb-1">Controls</h3>
-        <p className="text-sm">Use the buttons above to control the AI</p>
-        <p className="text-sm">Chat with the AI using the message box</p>
-      </div>
-      
-      {/* <AIResponseDisplay aiResponse={aiResponse} /> */}
-
-      {/* Character 1 header */}
-      <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md flex items-center">
-        Character 1
-        {autoDialogueMode && conversationTurn === 'character1' && (
-          <span className="ml-2 px-2 py-1 text-xs bg-purple-600 rounded animate-pulse">
-            Speaking
-          </span>
-        )}
-      </h3>
-
-      {/* Character 2 header */}
-      <h3 className="text-white bg-black bg-opacity-70 p-2 rounded-t-md flex items-center">
-        Character 2
-        {autoDialogueMode && conversationTurn === 'character2' && (
-          <span className="ml-2 px-2 py-1 text-xs bg-purple-600 rounded animate-pulse">
-            Speaking
-          </span>
-        )}
-      </h3>
-      
       <Canvas shadows onCreated={({ scene }) => { sceneRef.current = scene; }}>
         {/* Default third-person camera */}
         {viewMode === 'thirdPerson' && (

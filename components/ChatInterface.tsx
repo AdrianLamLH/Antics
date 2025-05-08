@@ -1,91 +1,93 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function ChatInterface({ 
   onSendMessage, 
   userMessage, 
   setUserMessage, 
   chatHistory,
-  aiResponse,
-  capturingView,
-  executing,
-  characterId = "character1" // Add characterId prop with default
+  aiResponses,
+  capturingViews,
+  executings,
+  characterIds = ["character1", "character2"]
 }) {
   const chatEndRef = useRef(null);
+  const [selectedRecipient, setSelectedRecipient] = useState("everyone");
   
   // Auto-scroll to the bottom when chat history updates
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [chatHistory, aiResponse]);
-  
-  // Add a useEffect to log when props change
-  useEffect(() => {
-    console.log(`ChatInterface ${characterId} - New chat history:`, chatHistory);
-  }, [chatHistory, characterId]);
-
-  useEffect(() => {
-    if (aiResponse?.speech) {
-      console.log(`ChatInterface ${characterId} - New aiResponse:`, aiResponse.speech);
-      
-      // Check if this response is already in the chat history
-      const isDuplicate = chatHistory.some(msg => 
-        msg.text === aiResponse.speech && 
-        (msg.sender === 'ai' || msg.sender === characterId)
-      );
-      
-      console.log(`ChatInterface ${characterId} - Is aiResponse a duplicate? ${isDuplicate}`);
-    }
-  }, [aiResponse, chatHistory, characterId]);
+  }, [chatHistory, aiResponses]);
   
   // Handle input submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSendMessage(userMessage);
+    if (!userMessage.trim()) return;
+    
+    onSendMessage(userMessage, selectedRecipient);
   };
 
-  // Get the color for the character messages
-  const getCharacterColor = (sender) => {
-    if (sender === 'user') return 'bg-blue-800 bg-opacity-50 ml-8';
-    if (sender === 'character1') return 'bg-purple-800 bg-opacity-50 mr-8';
-    if (sender === 'character2') return 'bg-green-800 bg-opacity-50 mr-8';
-    return 'bg-gray-800 bg-opacity-50 mr-8'; // Default
+  // Get the color for the message based on sender/recipient
+  const getMessageColor = (msg) => {
+    if (msg.sender === 'user') return 'bg-blue-800 bg-opacity-50 ml-8';
+    if (msg.sender === 'character1') return 'bg-purple-800 bg-opacity-50 mr-8';
+    if (msg.sender === 'character2') return 'bg-green-800 bg-opacity-50 mr-8';
+    return 'bg-gray-800 bg-opacity-50 mr-8';
   };
   
-  // Get the character name for display
+  // Get the sender display name
   const getSenderName = (sender) => {
     if (sender === 'user') return 'You';
     if (sender === 'character1') return 'Character 1';
     if (sender === 'character2') return 'Character 2';
-    return sender === 'ai' && characterId === 'character2' ? 'Character 2' : 'Character 1';
+    return 'Unknown';
   };
+
+  // Get message prefix based on target
+  const getMessagePrefix = (msg) => {
+    if (msg.sender === 'user' && msg.target && msg.target !== 'everyone') {
+      return <span className="text-xs text-gray-400">[to {msg.target === 'character1' ? 'Character 1' : 'Character 2'}]</span>;
+    }
+    return null;
+  };
+
+  // Check if any characters are busy
+  const isAnyCharacterBusy = Object.values(capturingViews).some(value => value) || 
+                            Object.values(executings).some(value => value);
 
   return (
     <div className="bg-black bg-opacity-70 rounded-md p-3 max-h-60 overflow-y-auto w-full">
-      <div className="space-y-2">
-        {/* Log and display chat history */}
-        {chatHistory.map((msg, index) => {
-          console.log(`Rendering message ${index}:`, msg);
-          return (
-            <div 
-              key={msg.id || `msg-${index}-${msg.timestamp || Date.now()}`} 
-              className={`px-2 py-1 rounded ${getCharacterColor(msg.sender)}`}
-            >
-              <p className="text-sm text-gray-300">
-                {getSenderName(msg.sender)}:
-              </p>
-              <p className="text-white">{msg.text}</p>
-            </div>
-          );
-        })}
-        
-        {/* Only show aiResponse if it's not already in chatHistory */}
-        {aiResponse && aiResponse.speech && !chatHistory.some(msg => msg.text === aiResponse.speech) && (
-          <div className={`px-2 py-1 rounded ${getCharacterColor(characterId)}`}>
-            <p className="text-sm text-gray-300">{getSenderName(characterId)}:</p>
-            <p className="text-white">{aiResponse.speech}</p>
+      <div className="flex mb-2 gap-2">
+        <select 
+          value={selectedRecipient}
+          onChange={(e) => setSelectedRecipient(e.target.value)}
+          className="bg-gray-800 text-white text-sm rounded px-2 py-1 border border-gray-700"
+        >
+          <option value="everyone">Everyone</option>
+          <option value="character1">Character 1</option>
+          <option value="character2">Character 2</option>
+        </select>
+        <div className="text-xs text-gray-400 flex items-center">
+          {selectedRecipient === "everyone" ? "Message will be sent to all characters" : 
+           `Message will be sent privately to ${selectedRecipient === "character1" ? "Character 1" : "Character 2"}`}
+        </div>
+      </div>
+      
+      <div className="space-y-2 mb-2 border-t border-gray-700 pt-2">
+        {/* Display chat history */}
+        {chatHistory.map((msg, index) => (
+          <div 
+            key={msg.id || `msg-${index}-${msg.timestamp || Date.now()}`} 
+            className={`px-2 py-1 rounded ${getMessageColor(msg)}`}
+          >
+            <p className="text-sm text-gray-300 flex items-center gap-2">
+              {getSenderName(msg.sender)}:
+              {getMessagePrefix(msg)}
+            </p>
+            <p className="text-white">{msg.text}</p>
           </div>
-        )}
+        ))}
         
         {/* Auto-scroll anchor */}
         <div ref={chatEndRef} />
@@ -97,20 +99,20 @@ export default function ChatInterface({
           type="text"
           value={userMessage}
           onChange={(e) => setUserMessage(e.target.value)}
-          placeholder="Type a message..."
+          placeholder={`Type a message to ${selectedRecipient === "everyone" ? "everyone" : selectedRecipient === "character1" ? "Character 1" : "Character 2"}...`}
           className="flex-grow bg-transparent border-none outline-none px-3 py-2 text-white"
-          disabled={capturingView || executing}
+          disabled={isAnyCharacterBusy}
         />
         <button
           type="submit"
           className={`px-4 py-2 ${
-            capturingView || executing 
+            isAnyCharacterBusy 
               ? 'bg-gray-700 cursor-not-allowed' 
               : 'bg-blue-600 hover:bg-blue-700'
           } text-white`}
-          disabled={capturingView || executing}
+          disabled={isAnyCharacterBusy}
         >
-          {capturingView || executing ? 'Processing...' : 'Send'}
+          {isAnyCharacterBusy ? 'Processing...' : 'Send'}
         </button>
       </form>
     </div>
