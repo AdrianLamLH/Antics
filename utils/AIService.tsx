@@ -5,10 +5,10 @@ export async function requestAIActions(
   conversationContext,
   characterId,
   characterConfig
-) {  try {
-  console.log("Making AI request with context summary:", conversationContext);
-  console.log("Character config for request:", characterConfig); // Add this log
-
+) {  
+  try {
+    console.log("Making AI request with context summary:", conversationContext);
+    console.log("Character config for request:", characterConfig);
     
     const response = await fetch('/api/ai-character', {
       method: 'POST',
@@ -30,6 +30,15 @@ export async function requestAIActions(
     }
 
     const data = await response.json();
+    
+    // Play audio if available
+    if (data.audio) {
+      console.log(`Received audio data for ${characterId}, playing speech...`);
+      playAudioFromBase64(data.audio);
+    } else {
+      console.log(`No audio received for ${characterId}`);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error calling AI service:', error);
@@ -38,5 +47,32 @@ export async function requestAIActions(
       speech: 'Sorry, I encountered an error while analyzing the environment.',
       actions: []
     };
+  }
+}
+
+// Function to play base64 audio
+function playAudioFromBase64(base64String) {
+  try {
+    // Create an audio element
+    const audio = new Audio();
+    
+    // Set the source to the base64 data
+    audio.src = `data:audio/mpeg;base64,${base64String}`;
+    
+    // Add event listeners for debugging
+    audio.addEventListener('play', () => {
+      console.log('Audio playback started');
+    });
+    
+    audio.addEventListener('error', (e) => {
+      console.error('Audio playback error:', e);
+    });
+    
+    // Play the audio
+    audio.play().catch(error => {
+      console.error('Error playing audio:', error);
+    });
+  } catch (error) {
+    console.error('Error setting up audio playback:', error);
   }
 }

@@ -1,3 +1,5 @@
+import { generateSpeech, characterVoices } from '../../../utils/elevenlabsService';
+
 export async function POST(req) {
   try {
     // 1. EXTRACT REQUEST DATA
@@ -53,15 +55,36 @@ export async function POST(req) {
     // 7. PROCESS ACTIONS BASED ON COMMAND TYPE
     processActions(aiResponse, commandType, userMessage, controls);
     
-    console.log("Final processed response:", JSON.stringify(aiResponse));
+    // 8. GENERATE TEXT-TO-SPEECH USING ELEVENLABS
+    let audioContent = null;
+    if (aiResponse.speech) {
+      // Get the voice ID based on the character
+      const voiceId = characterVoices[characterId] || characterVoices.character1;
+      
+      // Generate speech
+      console.log(`Generating speech for ${characterId} using voice ${voiceId}`);
+      audioContent = await generateSpeech(aiResponse.speech, voiceId);
+    }
     
-    return new Response(JSON.stringify(aiResponse), {
+    // Add the audio content to the response
+    const finalResponse = {
+      ...aiResponse,
+      audio: audioContent
+    };
+    
+    console.log("Final processed response with audio:", 
+      audioContent ? "Audio generated successfully" : "No audio generated");
+    
+    return new Response(JSON.stringify(finalResponse), {
       headers: { 'Content-Type': 'application/json' }
     });
     
   } catch (error) {
     console.error("Unexpected error in AI character API:", error);
-    return new Response(JSON.stringify(getFallbackResponse()), {
+    return new Response(JSON.stringify({
+      ...getFallbackResponse(),
+      audio: null
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });

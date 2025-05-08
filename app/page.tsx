@@ -706,7 +706,7 @@ export default function Home() {
         <Suspense>
           {/* Add OrbitControls only in third-person mode */}
           {viewMode === 'thirdPerson' && <OrbitControls />}
-          <Physics debug gravity={[0, -20, 0]}>
+          <Physics gravity={[0, -20, 0]}>
           {/* First Character Setup */}
           <RigidBody
             ref={characterBodyRef}

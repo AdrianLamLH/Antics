@@ -178,14 +178,14 @@ export default function Character({ bodyRef, currentAnimation = 'idle', aiRespon
         <group ref={group} position={props.position}>
             <primitive object={scene} />
             
-            {/* Speech bubble for AI responses */}
+            {/* Speech bubble for AI responses
             {aiResponse && aiResponse.speech && (
                 <Html position={[0, 6, 0]} center distanceFactor={10}>
                     <div className="bg-black bg-opacity-70 p-2 rounded-lg shadow-md text-white text-sm w-48 max-h-32 overflow-y-auto">
                         {aiResponse.speech}
                     </div>
                 </Html>
-            )}
+            )} */}
         </group>
     )
 }
