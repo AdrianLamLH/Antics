@@ -136,55 +136,89 @@ const DrawingBoard = ({ onDrawingComplete, onClear }: DrawingBoardProps) => {
   const convertTo3D = () => {
     if (paths.length === 0) return;
 
-    // Group paths by color
-    const pathsByColor = paths.reduce((acc, path) => {
-      if (!acc[path.color]) {
-        acc[path.color] = [];
+    // Create a single shape from all paths
+    const shape = new THREE.Shape();
+    let isFirstPath = true;
+
+    // Combine all paths into a single shape
+    paths.forEach(path => {
+      if (path.points.length > 0) {
+        // Normalize points to be between -1 and 1
+        const normalizedPoints = path.points.map(point => ({
+          x: (point.x / 200) - 1,
+          y: -((point.y / 200) - 1)
+        }));
+
+        if (isFirstPath) {
+          shape.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
+          isFirstPath = false;
+        } else {
+          shape.lineTo(normalizedPoints[0].x, normalizedPoints[0].y);
+        }
+
+        normalizedPoints.slice(1).forEach(point => {
+          shape.lineTo(point.x, point.y);
+        });
       }
-      acc[path.color].push(path);
-      return acc;
-    }, {} as Record<string, typeof paths>);
+    });
 
-    // Create a shape for each color group
-    const geometries = Object.entries(pathsByColor).map(([color, colorPaths]) => {
-      const shape = new THREE.Shape();
-      let isFirstPath = true;
+    // Create 3D geometry
+    const extrudeSettings = {
+      steps: 1,
+      depth: 0.5,
+      bevelEnabled: true,
+      bevelThickness: 0.1,
+      bevelSize: 0.1,
+      bevelSegments: 3
+    };
 
-      // Combine all paths of the same color into a single shape
-      colorPaths.forEach(path => {
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+    // Create vertex colors based on the paths
+    const colors = new Float32Array(geometry.attributes.position.count * 3);
+    const color = new THREE.Color();
+
+    // For each face in the geometry
+    for (let i = 0; i < geometry.attributes.position.count; i += 3) {
+      // Find which path this face belongs to
+      const faceCenter = new THREE.Vector3();
+      for (let j = 0; j < 3; j++) {
+        faceCenter.add(new THREE.Vector3(
+          geometry.attributes.position.array[i * 3 + j * 3],
+          geometry.attributes.position.array[i * 3 + j * 3 + 1],
+          geometry.attributes.position.array[i * 3 + j * 3 + 2]
+        ));
+      }
+      faceCenter.divideScalar(3);
+
+      // Find the closest path to this face
+      let closestPath = paths[0];
+      let minDistance = Infinity;
+      paths.forEach(path => {
         if (path.points.length > 0) {
-          // Normalize points to be between -1 and 1
-          const normalizedPoints = path.points.map(point => ({
-            x: (point.x / 200) - 1,
-            y: -((point.y / 200) - 1)
-          }));
-
-          if (isFirstPath) {
-            shape.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
-            isFirstPath = false;
-          } else {
-            shape.lineTo(normalizedPoints[0].x, normalizedPoints[0].y);
+          const pathCenter = new THREE.Vector2(
+            (path.points[0].x / 200) - 1,
+            -((path.points[0].y / 200) - 1)
+          );
+          const distance = faceCenter.distanceTo(new THREE.Vector3(pathCenter.x, pathCenter.y, 0));
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestPath = path;
           }
-
-          normalizedPoints.slice(1).forEach(point => {
-            shape.lineTo(point.x, point.y);
-          });
         }
       });
 
-      // Create 3D geometry
-      const extrudeSettings = {
-        steps: 1,
-        depth: 0.5,
-        bevelEnabled: true,
-        bevelThickness: 0.1,
-        bevelSize: 0.1,
-        bevelSegments: 3
-      };
+      // Set the color for this face's vertices
+      color.set(closestPath.color);
+      for (let j = 0; j < 3; j++) {
+        colors[i * 3 + j * 3] = color.r;
+        colors[i * 3 + j * 3 + 1] = color.g;
+        colors[i * 3 + j * 3 + 2] = color.b;
+      }
+    }
 
-      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-      return { geometry, color };
-    });
+    // Add the color attribute to the geometry
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     // Define physics properties
     const physicsProps = {
@@ -195,7 +229,7 @@ const DrawingBoard = ({ onDrawingComplete, onClear }: DrawingBoardProps) => {
       angularDamping: 0.9  // High angular damping to prevent spinning
     };
 
-    onDrawingComplete(geometries, physicsProps);
+    onDrawingComplete([{ geometry, color: 'white' }], physicsProps);
   };
 
   const deletePath = (index: number) => {

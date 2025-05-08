@@ -46,7 +46,7 @@ interface SharedMessage {
 }
 
 interface DrawnObject {
-  geometries: { geometry: THREE.ExtrudeGeometry; color: string }[];
+  geometry: THREE.ExtrudeGeometry;
   position: [number, number, number];
   scale?: [number, number, number];
   physicsProps: {
@@ -486,7 +486,7 @@ export default function Home() {
     try {
       // Add the new object to the drawn objects state
       setDrawnObjects(prev => [...prev, {
-        geometries,
+        geometry: geometries[0].geometry,
         position: [0, 5, 0], // Start slightly above ground
         scale: [1, 1, 1],
         physicsProps
@@ -497,13 +497,36 @@ export default function Home() {
   }, []);
 
   const deleteDrawnObject = (index: number) => {
-    // Remove all meshes for this object from the scene
+    // Remove the mesh from the scene
     if (sceneRef.current) {
       const object = drawnObjects[index];
-      object.geometries.forEach(({ geometry }) => {
+      const mesh = sceneRef.current.children.find(child => 
+        child instanceof THREE.Mesh && 
+        child.geometry === object.geometry
+      );
+      if (mesh) {
+        sceneRef.current.remove(mesh);
+        // Dispose of geometry and material to free up memory
+        mesh.geometry.dispose();
+        if (mesh.material instanceof THREE.Material) {
+          mesh.material.dispose();
+        } else if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(material => material.dispose());
+        }
+      }
+    }
+    
+    // Update the state
+    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const deleteAllDrawnObjects = () => {
+    // Remove all meshes from the scene
+    if (sceneRef.current) {
+      drawnObjects.forEach(obj => {
         const mesh = sceneRef.current.children.find(child => 
           child instanceof THREE.Mesh && 
-          child.geometry === geometry
+          child.geometry === obj.geometry
         );
         if (mesh) {
           sceneRef.current.remove(mesh);
@@ -515,33 +538,6 @@ export default function Home() {
             mesh.material.forEach(material => material.dispose());
           }
         }
-      });
-    }
-    
-    // Update the state
-    setDrawnObjects(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const deleteAllDrawnObjects = () => {
-    // Remove all meshes from the scene
-    if (sceneRef.current) {
-      drawnObjects.forEach(obj => {
-        obj.geometries.forEach(({ geometry }) => {
-          const mesh = sceneRef.current.children.find(child => 
-            child instanceof THREE.Mesh && 
-            child.geometry === geometry
-          );
-          if (mesh) {
-            sceneRef.current.remove(mesh);
-            // Dispose of geometry and material to free up memory
-            mesh.geometry.dispose();
-            if (mesh.material instanceof THREE.Material) {
-              mesh.material.dispose();
-            } else if (Array.isArray(mesh.material)) {
-              mesh.material.forEach(material => material.dispose());
-            }
-          }
-        });
       });
     }
     
@@ -846,21 +842,18 @@ export default function Home() {
                 angularDamping={obj.physicsProps.angularDamping}
                 position={obj.position}
               >
-                {obj.geometries.map(({ geometry, color }, geomIndex) => (
-                  <mesh
-                    key={geomIndex}
-                    geometry={geometry}
-                    scale={obj.scale || [1, 1, 1]}
-                    castShadow
-                    receiveShadow
-                  >
-                    <meshStandardMaterial 
-                      color={color}
-                      metalness={0.3}
-                      roughness={0.4}
-                    />
-                  </mesh>
-                ))}
+                <mesh
+                  geometry={obj.geometry}
+                  scale={obj.scale || [1, 1, 1]}
+                  castShadow
+                  receiveShadow
+                >
+                  <meshStandardMaterial 
+                    vertexColors
+                    metalness={0.3}
+                    roughness={0.4}
+                  />
+                </mesh>
               </RigidBody>
             </Draggable>
           ))}
@@ -884,7 +877,7 @@ export default function Home() {
               className="w-full px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded flex items-center justify-between"
               onClick={() => setShowObjectList(prev => !prev)}
             >
-              <span className="font-semibold">Drawn Objects ({drawnObjects.length})</span>
+              <span className="font-semibold">3D Render Objects ({drawnObjects.length})</span>
               <span>{showObjectList ? '▼' : '▶'}</span>
             </button>
             {showObjectList && (
