@@ -22,12 +22,8 @@ export async function POST(req) {
 
     console.log("Received request with controls:", controls);
     
-    // 3. DETERMINE COMMAND TYPE
-    const commandType = getCommandType(userMessage);
-    console.log(`Command type detected: ${commandType}`);
-    
-    // 4. BUILD THE PROMPT
-    let characterPrompt = buildBasePrompt({
+    // 3. BUILD THE PROMPT - Skip command classification
+    let characterPrompt = buildUnifiedPrompt({
       personality,
       biography,
       goals,
@@ -35,7 +31,6 @@ export async function POST(req) {
       customInstructions,
       contextToUse,
       controls,
-      commandType,
       userMessage
     });
     
@@ -43,19 +38,19 @@ export async function POST(req) {
     console.log(characterPrompt);
     console.log("=== END PROMPT ===");
     
-    // 5. CALL THE LLM (CLAUDE)
+    // 4. CALL THE LLM (CLAUDE)
     const data = await callClaudeAPI(characterPrompt, image);
     
-    // 6. PARSE THE RESPONSE
+    // 5. PARSE THE RESPONSE
     const fullText = data.content[0].text;
     console.log("Claude text response:", fullText);
     
     const aiResponse = parseClaudeResponse(fullText);
     
-    // 7. PROCESS ACTIONS BASED ON COMMAND TYPE
-    processActions(aiResponse, commandType, userMessage, controls);
+    // 6. VALIDATE ACTIONS
+    validateActions(aiResponse, controls, userMessage || "");
     
-    // 8. GENERATE TEXT-TO-SPEECH USING ELEVENLABS
+    // 7. GENERATE TEXT-TO-SPEECH USING ELEVENLABS
     let audioContent = null;
     if (aiResponse.speech) {
       // Get the voice ID based on the character
@@ -93,57 +88,7 @@ export async function POST(req) {
 
 // HELPER FUNCTIONS
 
-function getCommandType(userMessage) {
-  if (!userMessage) return "chat";
-  
-  const msg = userMessage.toLowerCase();
-  
-  // Single action commands
-  if (msg.match(/^(turn|rotate) (right|left|around|clockwise|counterclockwise)/i)) {
-    return "turn";
-  }
-  
-  if (msg.match(/^jump/i)) {
-    return "jump";
-  }
-  
-  if (msg.match(/^wait/i) || msg.match(/^stay/i) || msg.match(/^stop/i)) {
-    return "wait";
-  }
-  
-  // Movement commands
-  if (msg.match(/^(walk|move|go) (forward|forwards|ahead|straight)/i)) {
-    return "moveForward";
-  }
-  
-  if (msg.match(/^(walk|move|go) (backward|backwards|back)/i)) {
-    return "moveBackward";
-  }
-  
-  if (msg.match(/^(walk|move|go) (left)/i)) {
-    return "moveLeft";
-  }
-  
-  if (msg.match(/^(walk|move|go) (right)/i)) {
-    return "moveRight";
-  }
-  
-  // Compound commands
-  if (msg.includes(" and ") || msg.includes(" then ") || 
-      msg.includes("after") || msg.match(/multiple|several|sequence/i)) {
-    return "compound";
-  }
-  
-  // Exploratory commands
-  if (msg.match(/explore|look around|search|investigate|check/i)) {
-    return "exploratory";
-  }
-  
-  // Default to chat if no command pattern is matched
-  return "chat";
-}
-
-function buildBasePrompt({
+function buildUnifiedPrompt({
   personality,
   biography,
   goals,
@@ -151,7 +96,6 @@ function buildBasePrompt({
   customInstructions,
   contextToUse,
   controls,
-  commandType,
   userMessage
 }) {
   // Character introduction
@@ -167,133 +111,136 @@ RECENT CONVERSATION HISTORY:
 ${contextToUse || "No previous conversation."}
 Remember to maintain continuity with your previous thoughts and actions.`;
 
-  // Basic response format
+  // Response format with clear action instructions
   prompt += `\n\nYour response must follow this exact format:
-THOUGHT: Brief internal thought about the user's request
+THOUGHT: Brief internal thought about the user's request (the user won't see this)
 SPEECH: Your conversational response to the user
-ACTIONS: (only include this section for movement commands)
-actionType value delay`;
+ACTIONS: (Include this section if and only if the user explicitly requested physical actions, otherwise omit it)
+actionType value delay
+actionType value delay
+...
 
-  // Command-specific instructions
-  prompt += `\n\nYou can perform these actions: ${controls.join(', ')}`;
-  
-  // Select appropriate guidelines based on command type
-  if (commandType === "turn") {
-    prompt += buildTurnPrompt();
-  } else if (commandType === "jump" || commandType === "wait") {
-    prompt += buildSimpleActionPrompt(commandType);
-  } else if (commandType === "moveForward" || commandType === "moveBackward" || 
-             commandType === "moveLeft" || commandType === "moveRight") {
-    prompt += buildMovementPrompt(commandType);
-  } else if (commandType === "compound") {
-    prompt += buildCompoundPrompt();
-  } else if (commandType === "exploratory") {
-    prompt += buildExploratoryPrompt();
-  } else {
-    prompt += buildChatPrompt();
-  }
-  
+AVAILABLE ACTIONS:
+You can perform these actions: ${controls.join(', ')}
+
+ACTION SPECIFICATIONS:
+- moveForward: Move forward in the direction you're facing. Value = distance (5-15), Delay = milliseconds (500-1500)
+- moveBackward: Move backward. Value = distance (5-15), Delay = milliseconds (500-1500)
+- moveLeft: Strafe left. Value = distance (5-15), Delay = milliseconds (500-1500)
+- moveRight: Strafe right. Value = distance (5-15), Delay = milliseconds (500-1500)
+- turn: NOTE - For turn right, use NEGATIVE values. For turn left, use POSITIVE values. Value = radians (0.3-3.14), Delay = milliseconds (300-1000)
+- jump: Jump upward. Value = height (15-25), Delay = milliseconds (800-1200)
+- wait: Pause before next action. Value = duration (300-1500), Delay = milliseconds (300-1000)
+
+CRITICAL INSTRUCTIONS:
+- ONLY include actions that the user EXPLICITLY requested
+- Do NOT add extra actions the user didn't ask for
+- Do NOT create actions for vague or ambiguous requests
+- If the user's request doesn't clearly specify actions, do NOT include an ACTIONS section
+- For turn commands: Right turns use NEGATIVE values (-0.3 to -3.14), left turns use POSITIVE values (0.3 to 3.14)
+- Keep action sequences short and direct - only include what was requested
+- For conversational exchanges with no explicit action requests, omit the ACTIONS section entirely`;
+
+  // Add examples for better clarity
+  prompt += `\n\nEXAMPLES:
+
+For "turn right 90 degrees":
+THOUGHT: The user wants me to turn right 90 degrees, which is about -1.57 radians.
+SPEECH: I'll turn right 90 degrees for you.
+ACTIONS:
+turn -1.57 500
+
+For "go forward and then left":
+THOUGHT: The user wants me to move forward and then turn left.
+SPEECH: I'll move forward and make a left turn.
+ACTIONS:
+moveForward 10 800
+turn 1.57 500
+
+For "jump":
+THOUGHT: The user wants me to jump once.
+SPEECH: I'll jump for you.
+ACTIONS:
+jump 20 800
+
+For "Hello, how are you today?":
+THOUGHT: The user is just greeting me, so I should respond conversationally. There's no explicit action request.
+SPEECH: Hello! I'm doing quite well today. How about yourself?
+
+For "Can you tell me about this place?":
+THOUGHT: The user wants my impression of the environment but has not requested any physical actions.
+SPEECH: From what I can see, we're in a virtual space with some interesting geometric features. The lighting creates interesting shadows, and there seems to be some structures in the distance.
+
+For "What do you think of this room?":
+THOUGHT: The user is asking for my opinion, not requesting any physical actions.
+SPEECH: It's an interesting digital environment with clean lines and a sense of open space. The lighting creates a calm atmosphere.`;
+
   // Add user message
   if (userMessage && userMessage.trim()) {
-    prompt += `\n\nThe user has just said to you: "${userMessage}"`;
+    prompt += `\n\nThe user has just said to you: "${userMessage}"
+
+REMEMBER: Only generate ACTIONS if the user explicitly asked you to perform physical actions. Otherwise, respond conversationally without any ACTIONS section.`;
   }
   
   return prompt;
 }
 
-function buildTurnPrompt() {
-  return `\n\nTURN COMMAND GUIDELINES:
-- Extract the exact turn direction (right/left) and angle if specified
-- For right turns, use positive values (turning clockwise)
-- For left turns, use negative values (turning counter-clockwise)
-- Use standard values: 90° = 1.57, 180° = 3.14, 45° = 0.78
-- Only include a single turn action with no additional movements
-- Default to 90° (1.57 radians) if no specific angle is mentioned
-
-EXAMPLE:
-For "turn right 90 degrees":
-ACTIONS:
-turn 1.57 500
-
-For "turn left":
-ACTIONS:
-turn -1.57 500`;
-}
-
-function buildSimpleActionPrompt(type) {
-  return `\n\nSIMPLE ACTION GUIDELINES:
-- Include exactly one ${type} action
-- No additional movements before or after
-- Use appropriate values (${type === 'jump' ? '15-25 for jump height' : '300-1000 ms for wait time'})
-
-EXAMPLE:
-For "${type}":
-ACTIONS:
-${type} ${type === 'jump' ? '20' : '500'} ${type === 'jump' ? '800' : '500'}`;
-}
-
-function buildMovementPrompt(direction) {
-  return `\n\nMOVEMENT GUIDELINES:
-- Use only ${direction} actions (no turns or other movements)
-- Include 2-3 actions of the same type with different distances
-- Maintain a straight line pattern
-
-EXAMPLE:
-For "${direction.replace('move', 'walk')}":
-ACTIONS:
-${direction} 10 800
-${direction} 8 700
-${direction} 12 900`;
-}
-
-function buildCompoundPrompt() {
-  return `\n\nCOMPOUND COMMAND GUIDELINES:
-- Follow the exact sequence requested by the user
-- Include only the actions mentioned in the user's request
-- Use appropriate values for each action type
-- Order matters: execute actions in the order mentioned
-
-EXAMPLE:
-For "walk forward then turn right":
-ACTIONS:
-moveForward 10 800
-turn 1.57 500
-
-For "jump and then move left":
-ACTIONS:
-jump 20 800
-wait 300 300
-moveLeft 10 800`;
-}
-
-function buildExploratoryPrompt() {
-  return `\n\nEXPLORATORY COMMAND GUIDELINES:
-- Create a short sequence of diverse actions (3-5 total)
-- Include a mix of movements and turns to simulate exploration
-- Maintain realistic movement patterns
-- Add short waits between major actions to simulate looking around
-
-EXAMPLE:
-For "explore the area":
-ACTIONS:
-moveForward 10 800
-turn 0.7 500
-wait 500 500
-moveForward 8 700
-turn -0.5 500`;
-}
-
-function buildChatPrompt() {
-  return `\n\nCHAT RESPONSE GUIDELINES:
-- Respond conversationally to the user's message
-- Do NOT include any ACTIONS section
-- Only include THOUGHT and SPEECH sections
-- Keep your character's personality and background in mind
-
-EXAMPLE:
-For "Tell me about this place":
-THOUGHT: The user wants to know about this environment. I should describe what I can see.
-SPEECH: This appears to be a virtual landscape with interesting geometric features. The lighting creates dramatic shadows on the surfaces around us.`;
+function validateActions(aiResponse, controls, userMessage) {
+  // If there's no clear action command in the user message, remove any actions
+  const actionWords = ['move', 'turn', 'go', 'walk', 'jump', 'forward', 'backward', 'left', 'right', 'stop', 'wait'];
+  const containsActionRequest = actionWords.some(word => 
+    userMessage.toLowerCase().includes(word)
+  );
+  
+  if (!containsActionRequest && aiResponse.actions && aiResponse.actions.length > 0) {
+    console.log("No explicit action requested by user, removing generated actions");
+    aiResponse.actions = [];
+    return;
+  }
+  
+  // Only keep actions with valid types
+  if (aiResponse.actions && aiResponse.actions.length > 0) {
+    // Keep track of original action count
+    const originalCount = aiResponse.actions.length;
+    
+    aiResponse.actions = aiResponse.actions.filter(action => 
+      controls.includes(action.type)
+    );
+    
+    // Log if actions were removed due to invalid types
+    if (aiResponse.actions.length < originalCount) {
+      console.log(`Removed ${originalCount - aiResponse.actions.length} invalid actions`);
+    }
+    
+    // Apply safe limits to all action values
+    aiResponse.actions.forEach(action => {
+      // Cap movement values
+      if (['moveForward', 'moveBackward', 'moveLeft', 'moveRight'].includes(action.type)) {
+        action.value = Math.max(5, Math.min(action.value, 15));
+      }
+      
+      // Cap turn values
+      if (action.type === 'turn') {
+        // Ensure the value is within bounds but preserve sign
+        action.value = Math.sign(action.value) * 
+                        Math.min(Math.abs(action.value), 3.14); // Max 180 degrees
+      }
+      
+      // Cap jump values
+      if (action.type === 'jump') {
+        action.value = Math.max(15, Math.min(action.value, 25));
+      }
+      
+      // Cap all delays
+      action.delay = Math.min(Math.max(action.delay, 300), 1500);
+    });
+    
+    // Limit total number of actions to prevent long sequences
+    if (aiResponse.actions.length > 3) {
+      console.log(`Limiting action sequence from ${aiResponse.actions.length} to 3 actions`);
+      aiResponse.actions = aiResponse.actions.slice(0, 3);
+    }
+  }
 }
 
 async function callClaudeAPI(prompt, image) {
@@ -381,126 +328,6 @@ function parseClaudeResponse(fullText) {
   }
   
   return aiResponse;
-}
-
-function processActions(aiResponse, commandType, userMessage, controls) {
-  // Validate all actions have valid types
-  aiResponse.actions = aiResponse.actions.filter(action => 
-    controls.includes(action.type)
-  );
-  
-  // Process based on command type
-  if (commandType === "turn") {
-    processTurnCommand(aiResponse, userMessage);
-  } else if (commandType === "jump" || commandType === "wait") {
-    processSimpleCommand(aiResponse, commandType);
-  } else if (["moveForward", "moveBackward", "moveLeft", "moveRight"].includes(commandType)) {
-    processMovementCommand(aiResponse, commandType);
-  } else if (commandType === "exploratory" && aiResponse.actions.length === 0) {
-    // Only add default exploratory actions if none were generated
-    addDefaultExploratoryActions(aiResponse);
-  }
-  
-  // Cap all action values for safety
-  capActionValues(aiResponse.actions);
-}
-
-function processTurnCommand(aiResponse, userMessage) {
-  // Extract angle if present
-  let angle = 1.57; // Default 90 degrees
-  const angleMatch = userMessage.match(/(\d+)\s*degree/i);
-  if (angleMatch) {
-    angle = parseInt(angleMatch[1]) * Math.PI / 180;
-  }
-  
-  // Determine direction
-  const isRight = !userMessage.toLowerCase().includes('left');
-  
-  // INVERT THE DIRECTION to fix the reversed turning
-  // if isRight is true, we want to turn left in the physics system (negative angle)
-  // if isRight is false, we want to turn right in the physics system (positive angle)
-  if (isRight) angle = -angle;
-  else angle = Math.abs(angle);
-  
-  // Replace all actions with a single turn
-  aiResponse.actions = [{
-    type: 'turn',
-    value: angle,
-    delay: 500
-  }];
-}
-
-function processSimpleCommand(aiResponse, commandType) {
-  // Replace all actions with a single action of the correct type
-  const defaultValues = {
-    'jump': { value: 20, delay: 800 },
-    'wait': { value: 500, delay: 500 }
-  };
-  
-  aiResponse.actions = [{
-    type: commandType,
-    ...defaultValues[commandType]
-  }];
-}
-
-function processMovementCommand(aiResponse, commandType) {
-  // Ensure we only have the correct movement type
-  aiResponse.actions = aiResponse.actions.filter(a => a.type === commandType);
-  
-  // If we have fewer than 2 actions, add more
-  if (aiResponse.actions.length < 2) {
-    const defaultDistances = [10, 8, 12];
-    const defaultDelays = [800, 700, 900];
-    
-    // Keep existing action if there is one
-    const existingAction = aiResponse.actions[0];
-    aiResponse.actions = [];
-    
-    if (existingAction) {
-      aiResponse.actions.push(existingAction);
-    }
-    
-    // Add more actions to reach at least 2
-    for (let i = aiResponse.actions.length; i < 2; i++) {
-              aiResponse.actions.push({
-        type: commandType,
-        value: defaultDistances[i % defaultDistances.length],
-        delay: defaultDelays[i % defaultDelays.length]
-              });
-            }
-          }
-        }
-
-function addDefaultExploratoryActions(aiResponse) {
-  aiResponse.actions = [
-    { type: "moveForward", value: 10, delay: 800 },
-    { type: "turn", value: 0.7, delay: 500 },
-    { type: "wait", value: 300, delay: 300 },
-    { type: "moveForward", value: 8, delay: 700 }
-  ];
-}
-
-function capActionValues(actions) {
-  actions.forEach(action => {
-    // Cap movement values
-    if (['moveForward', 'moveBackward', 'moveLeft', 'moveRight'].includes(action.type)) {
-      action.value = Math.max(5, Math.min(action.value, 15));
-    }
-    
-    // Cap turn values
-    if (action.type === 'turn') {
-      action.value = Math.sign(action.value) * 
-                      Math.min(Math.abs(action.value), 3.14); // Max 180 degrees
-    }
-    
-    // Cap jump values
-    if (action.type === 'jump') {
-      action.value = Math.max(15, Math.min(action.value, 25));
-    }
-    
-    // Cap all delays
-    action.delay = Math.min(action.delay, 1500);
-  });
 }
 
 function getFallbackResponse() {

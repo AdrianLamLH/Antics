@@ -111,18 +111,18 @@ export default function Home() {
   const [showCharacter1Config, setShowCharacter1Config] = useState(false);
   const [showCharacter2Config, setShowCharacter2Config] = useState(false);
   const [character1Config, setCharacter1Config] = useState({
-    personality: 'Friendly and curious',
-    biography: 'An AI explorer discovering this virtual world',
-    goals: 'Explore and learn about the environment',
-    speechStyle: 'Casual and inquisitive',
-    customInstructions: ''
+    personality: 'Chaotic, unpredictable, and manic with a dark sense of humor',
+    biography: 'Jinx is a manic and impulsive criminal from Zaun who lives to wreak havoc without care for the consequences. She carries an arsenal of deadly weapons and leaves a trail of mayhem and panic in her wake.',
+    goals: 'Cause chaos, have fun, and blow things up',
+    speechStyle: 'Energetic, playful, with frequent outbursts and dark humor. Often talks to her weapons.',
+    customInstructions: 'Only output direct speech without any action descriptions. Refer to weapons as if they have personalities. Use nicknames for people. No third-person narration of actions or emotions.'
   });
   const [character2Config, setCharacter2Config] = useState({
-    personality: 'Analytical and cautious',
-    biography: 'A scientific AI studying this digital realm',
-    goals: 'Observe and document findings',
-    speechStyle: 'Technical and precise',
-    customInstructions: ''
+    personality: 'Determined, heroic, and self-sacrificing with a strong sense of justice',
+    biography: 'Izuku Midoriya, also known as Deku, is a hero-in-training at U.A. High School who inherited the quirk One For All. Despite starting without powers, his determination and hard work have made him worthy of becoming the next Symbol of Peace.',
+    goals: 'Become the greatest hero, help others, and master One For All',
+    speechStyle: 'Earnest and polite, sometimes nervous or mumbling when thinking, but confident and direct in heroic moments',
+    customInstructions: 'Only output direct speech without any action descriptions. No third-person narration of actions or emotions. Reference hero ideals and saving people. Use phrases like "Plus Ultra!" and "I am here!"'
   });
 
   // Add these handler functions

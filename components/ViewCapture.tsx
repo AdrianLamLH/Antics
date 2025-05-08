@@ -90,7 +90,7 @@ export default function ViewCapture({ onCapture, active = false, characterId = "
         setViewCaptured(true);
         
         // Save the image locally
-        saveImageLocally(dataURL, characterId);
+        // saveImageLocally(dataURL, characterId);
         
         // Call the onCapture callback
         if (onCapture) {
