@@ -259,18 +259,17 @@ export default function Home() {
     });
   };
 
-  const handleUserMessage = (message: string) => {
-    if (!message.trim()) return;
-    
-    setUserMessage("");  // Clear input field first
-    
-    setChatHistory(prev => [...prev, { sender: 'user', text: message }]);
+  const handleUserMessage = useCallback((message: string) => {
+    if (!message.trim()) return;    
+
     setSharedConversation(prev => [...prev, {
       sender: 'user',
       target: 'character1',
       text: message,
       timestamp: Date.now()
     }]);
+
+    setUserMessage("");  // Clear input field first
     
     // Add this line to trigger the AI response
     if (!capturingView && !executing) {
@@ -278,7 +277,7 @@ export default function Home() {
     } else {
       console.warn("Already processing a request, please wait");
     }
-  };
+  }, [capturingView, executing, triggerCapture]);
 
   // Handler for sending messages to character 2
   const handleSendMessage2 = useCallback(async (message) => {
