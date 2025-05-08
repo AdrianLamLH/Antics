@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import ViewCapture from './ViewCapture';
-import { requestAIActions } from '../utils/AIService';
+import { requestAIActions } from '../utils/aiService';
 import * as THREE from 'three'; // Add this import
 
 
@@ -478,8 +478,8 @@ const stopContinuousMode = useCallback(() => {
     }
   }, []);
   
-  // Modify the triggerViewCapture to accept an optional user message and character positions
-  const triggerViewCapture = useCallback((userMessage = "", characterPositions = null) => {
+  // Modify the triggerViewCapture to accept an optional user message
+  const triggerViewCapture = useCallback((userMessage = "") => {
     if (capturingView || executing) {
       console.warn(`${characterId}: Already capturing view or executing actions`);
       return;
@@ -492,14 +492,8 @@ const stopContinuousMode = useCallback(() => {
       autoConversation: userMessage === "Let's continue our conversation"
     });
     
-    // Store the character positions if provided
-    if (characterPositions) {
-      console.log(`${characterId} received position data:`, characterPositions);
-    }
-    
     // Proceed with capture
     setCurrentUserMessage(userMessage);
-    setCharacterPositions(characterPositions);
     setCapturingView(true);
   }, [capturingView, executing, characterId, isMyTurn]);
   
@@ -603,10 +597,7 @@ const stopContinuousMode = useCallback(() => {
   const [messageHistory, setMessageHistory] = useState([]);
   const maxHistoryLength = 3; // Keep last 3 interactions for context
 
-  // Add characterPositions state
-  const [characterPositions, setCharacterPositions] = useState(null);
-
-  // Modify the handleCapturedView function to include positions in the API call
+  // Modify the handleCapturedView function to include message history
   const handleCapturedView = useCallback(async (imageData) => {
     console.log(`${characterId} view captured, processing...`);
     setCapturingView(false);
@@ -644,8 +635,7 @@ const stopContinuousMode = useCallback(() => {
         currentUserMessage,
         contextSummary,
         characterId,
-        characterConfig,
-        characterPositions
+        characterConfig // Pass the config to the AI
       );
         
       console.log("Received AI response:", aiResult);
@@ -679,13 +669,11 @@ const stopContinuousMode = useCallback(() => {
       
       // Clear the current user message after processing
       setCurrentUserMessage("");
-      setCharacterPositions(null);
       
     } catch (error) {
       console.error("Error handling captured view:", error);
       setExecuting(false);
       setCurrentUserMessage("");
-      setCharacterPositions(null);
     } finally {
       // Always set executing to false when done
       console.log("Setting executing to false in finally block");

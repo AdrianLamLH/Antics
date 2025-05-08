@@ -4,15 +4,11 @@ export async function requestAIActions(
   userMessage,
   conversationContext,
   characterId,
-  characterConfig,
-  characterPositions = null
+  characterConfig
 ) {  
   try {
     console.log("Making AI request with context summary:", conversationContext);
     console.log("Character config for request:", characterConfig);
-    if (characterPositions) {
-      console.log("Character positions for request:", characterPositions);
-    }
     
     const response = await fetch('/api/ai-character', {
       method: 'POST',
@@ -25,8 +21,7 @@ export async function requestAIActions(
         userMessage: userMessage,
         conversationContext, // Include previous interactions
         characterId: characterId,
-        characterConfig, // Include the config in the request
-        characterPositions // Include the positions data
+        characterConfig // Include the config in the request
       }),
     });
 
@@ -73,11 +68,22 @@ function playAudioFromBase64(base64String) {
       console.error('Audio playback error:', e);
     });
     
+    // Add event listener for when audio finishes playing
+    audio.addEventListener('ended', () => {
+      console.log('Audio playback ended');
+      // Dispatch a custom event that our component can listen for
+      window.dispatchEvent(new CustomEvent('audioPlaybackComplete'));
+    });
+    
     // Play the audio
     audio.play().catch(error => {
       console.error('Error playing audio:', error);
+      // Dispatch event even if there was an error, to prevent hanging
+      window.dispatchEvent(new CustomEvent('audioPlaybackComplete'));
     });
   } catch (error) {
     console.error('Error setting up audio playback:', error);
+    // Dispatch event even if there was an error, to prevent hanging
+    window.dispatchEvent(new CustomEvent('audioPlaybackComplete'));
   }
 }

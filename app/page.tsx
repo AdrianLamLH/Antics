@@ -545,6 +545,97 @@ export default function Home() {
     setDrawnObjects([]);
   };
 
+  // Add these state variables at the beginning of the Home component
+  const [autoExploreMode, setAutoExploreMode] = useState(false);
+  const [currentSpeakingCharacter, setCurrentSpeakingCharacter] = useState(null);
+  const [audioPlaybackComplete, setAudioPlaybackComplete] = useState(true);
+  const autoExploreIntervalRef = useRef(null);
+
+  // Add a function to track when audio playback is complete
+  // Place this after other useEffects
+  useEffect(() => {
+    // Set up global event listener for when audio playback ends
+    const handleAudioEnded = () => {
+      console.log("Audio playback complete");
+      setAudioPlaybackComplete(true);
+    };
+    
+    // Listen for custom event from our audio player
+    window.addEventListener('audioPlaybackComplete', handleAudioEnded);
+    
+    return () => {
+      window.removeEventListener('audioPlaybackComplete', handleAudioEnded);
+      // Clear any timeouts when component unmounts
+      if (autoExploreIntervalRef.current) {
+        clearInterval(autoExploreIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Add this simple function to toggle auto explore mode
+  const toggleAutoExplore = () => {
+    setAutoExploreMode(prevMode => {
+      const newMode = !prevMode;
+      
+      // If turning on, start the interval
+      if (newMode) {
+        console.log("Starting auto explore");
+        // First clear any existing interval
+        if (autoExploreIntervalRef.current) {
+          clearInterval(autoExploreIntervalRef.current);
+        }
+        
+        // Start a new interval that alternates between characters
+        let isCharacter1Turn = true;
+        autoExploreIntervalRef.current = setInterval(() => {
+          const characterTurn = isCharacter1Turn ? "character1" : "character2";
+          console.log(`Auto explore turn: ${characterTurn}`);
+          
+          // Random movement or conversation prompts
+          const actions = [
+            "look around",
+            "walk forward a bit",
+            "turn slightly",
+            "tell me what you see",
+            "what do you think about this place?",
+            "how are you feeling today?"
+          ];
+          
+          const randomAction = actions[Math.floor(Math.random() * actions.length)];
+          
+          // Trigger the appropriate character
+          if (isCharacter1Turn) {
+            triggerCapture(randomAction);
+          } else {
+            triggerCapture2(randomAction);
+          }
+          
+          // Alternate turns
+          isCharacter1Turn = !isCharacter1Turn;
+        }, 10000); // 10 seconds between actions for a natural pace
+        
+      } else {
+        // If turning off, clear the interval
+        console.log("Stopping auto explore");
+        if (autoExploreIntervalRef.current) {
+          clearInterval(autoExploreIntervalRef.current);
+          autoExploreIntervalRef.current = null;
+        }
+      }
+      
+      return newMode;
+    });
+  };
+
+  // Add this to clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (autoExploreIntervalRef.current) {
+        clearInterval(autoExploreIntervalRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="w-full h-screen">
       {/* View toggle button */}
@@ -920,6 +1011,20 @@ export default function Home() {
         onClick={() => setShowDrawingBoard(true)}
       >
         Open Drawing Board
+      </button>
+    </div>
+
+    {/* Add this button somewhere visible in your UI */}
+    <div className="absolute top-4 left-4 z-10">
+      <button 
+        className={`px-4 py-2 rounded-md ${
+          autoExploreMode 
+            ? "bg-green-600 hover:bg-green-700" 
+            : "bg-black bg-opacity-70 hover:bg-opacity-80"
+        } text-white`}
+        onClick={toggleAutoExplore}
+      >
+        {autoExploreMode ? "Stop Auto Explore" : "Start Auto Explore"}
       </button>
     </div>
     </div>
