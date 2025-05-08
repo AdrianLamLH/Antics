@@ -3,10 +3,18 @@ import { useGLTF, useAnimations, Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
-export default function Character({ bodyRef, currentAnimation = 'idle', aiResponse = null, modelPath = '/midoriya.glb', ...props }) {
-    const group = useRef(null)
+export default function Character({
+    bodyRef,
+    currentAnimation = 'idle',
+    aiResponse = null,
+    modelPath = '/midoriya.glb',
+    position,
+    scale: characterScale = [1, 1, 1],
+    ...rest
+}) {
+    const groupNode = useRef(null)
     const { scene, animations } = useGLTF(modelPath)
-    const { actions, names } = useAnimations(animations, group)
+    const { actions, names } = useAnimations(animations, groupNode)
     const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
     
@@ -174,13 +182,17 @@ export default function Character({ bodyRef, currentAnimation = 'idle', aiRespon
         console.log("Available animations:", names);
     }, [actions, names]);
     
+    // Adjust speech bubble Y position based on character's scale (Y component)
+    // The original was [0, 6, 0]. We multiply the Y value by the character's Y scale.
+    const speechBubbleY = 6 * characterScale[1];
+
     return (
-        <group ref={group} position={props.position}>
-            <primitive object={scene} />
+        <group ref={groupNode} position={position} {...rest}>
+            <primitive object={scene} scale={characterScale} />
             
             {/* Speech bubble for AI responses */}
             {aiResponse && aiResponse.speech && (
-                <Html position={[0, 6, 0]} center distanceFactor={10}>
+                <Html position={[0, speechBubbleY, 0]} center distanceFactor={10}>
                     <div className="bg-black bg-opacity-70 p-2 rounded-lg shadow-md text-white text-sm w-48 max-h-32 overflow-y-auto">
                         {aiResponse.speech}
                     </div>
@@ -191,3 +203,4 @@ export default function Character({ bodyRef, currentAnimation = 'idle', aiRespon
 }
 
 useGLTF.preload('/midoriya.glb')
+useGLTF.preload('/jinx.glb');
