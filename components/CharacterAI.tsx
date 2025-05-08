@@ -64,7 +64,7 @@ export default function CharacterAI({
         const forwardVec = calculateForwardVector(currentRotation);
         
         // Scale steps to make movement more dramatic
-        const impulseStrength = Math.min(steps * 0.8, 20); // Prevent extreme values
+        const impulseStrength = Math.min(steps * 3, 50); // Prevent extreme values
         
         // Create impulse vector
         let impulse = { 

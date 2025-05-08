@@ -60,7 +60,7 @@ interface DrawnObject {
 
 export default function Home() {
   const characterBodyRef = useRef(null);
-  const startPosition = [0, 5, 0]; // Store initial position for reset
+  const startPosition = [0,0,-20]; // Store initial position for reset
   const fallThreshold = -100; // Reset character if Y position is below this value
   const [isFirstPerson, setIsFirstPerson] = useState(false);
   const [aiResponse, setAiResponse] = useState(null);
@@ -607,7 +607,7 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="flex gap-2 mb-2">
+        {/*<div className="flex gap-2 mb-2">
           <AIActionButton 
             isFirstPerson={false}
             capturingView={capturingView || character2CapturingView}
@@ -635,7 +635,7 @@ export default function Home() {
             <span className={`h-2 w-2 rounded-full ${character2CapturingView || character2Executing ? 'bg-yellow-500' : 'bg-green-500'}`}></span>
             <span className="text-xs">Character 2: {character2CapturingView || character2Executing ? 'Busy' : 'Ready'}</span>
           </div>
-        </div>
+        </div>*/}
         
         <ChatInterface 
           onSendMessage={handleUserMessage}
@@ -678,7 +678,7 @@ export default function Home() {
       )}
 
       {/* // Add this UI element near your other controls */}
-      <div className="absolute top-40 right-4 z-10 flex flex-col gap-2">
+      {/*<div className="absolute top-40 right-4 z-10 flex flex-col gap-2">
         <button 
           className={`px-4 py-2 rounded-md ${
             autoDialogueMode 
@@ -689,10 +689,10 @@ export default function Home() {
         >
           {autoDialogueMode ? "Stop Auto Dialogue" : "Start Auto Dialogue"}
         </button>
-      </div>
+      </div>*/}
 
       <Canvas shadows onCreated={({ scene }) => { sceneRef.current = scene; }}>
-        {/* Default third-person camera */}
+        Default third-person camera
         {viewMode === 'thirdPerson' && (
           <PerspectiveCamera
             makeDefault
@@ -701,8 +701,8 @@ export default function Home() {
           />
         )}
         
-        <ambientLight color={"white"} intensity={0.3} />
-        <LightBulb position={[0, 3, 0]} />
+        <ambientLight color={"white"} intensity={0} />
+        {/*<LightBulb position={[0, 3, 0]} />*/}
         <Suspense>
           {/* Add OrbitControls only in third-person mode */}
           {viewMode === 'thirdPerson' && <OrbitControls />}
@@ -752,6 +752,7 @@ export default function Home() {
                 currentAnimation={currentAnimation}
                 aiResponse={aiResponse}
                 modelPath="/jinx.glb"
+                scale={[1.5,1.5,1.5]}
               />
             </Suspense>
             <CuboidCollider 
@@ -769,7 +770,7 @@ export default function Home() {
             linearDamping={3.0} // Increase
             angularDamping={100}
             lockRotations={true}
-            position={[5, 1, 5]}
+            position={[-10,0,-20]}
           >
             <CharacterAI 
               characterBodyRef={character2BodyRef}
