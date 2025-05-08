@@ -38,8 +38,8 @@ export default function CharacterAI({
         rotation.w
       );
       
-      // Forward vector - FLIPPED from negative Z to positive Z
-      const forwardVec = new THREE.Vector3(0, 0, 1); // Changed from -1 to 1
+      // Changed from positive Z to negative Z to match the flipped model
+      const forwardVec = new THREE.Vector3(0, 0, -1);
       forwardVec.applyQuaternion(quaternion);
       forwardVec.normalize();
       
@@ -785,6 +785,8 @@ const stopContinuousMode = useCallback(() => {
         <ViewCapture 
           onCapture={handleCapturedView} 
           active={capturingView} 
+          characterId={characterId}
+          characterBodyRef={characterBodyRef}
         />
       )}
       

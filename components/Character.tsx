@@ -10,6 +10,7 @@ export default function Character({
     modelPath = '/midoriya.glb',
     position,
     scale: characterScale = [1, 1, 1],
+    rotation = [0, Math.PI, 0], // Add default rotation - 180 degrees around Y axis
     ...rest
 }) {
     const groupNode = useRef(null)
@@ -17,6 +18,13 @@ export default function Character({
     const { actions, names } = useAnimations(animations, groupNode)
     const [activeAnimation, setActiveAnimation] = useState('idle')
     const { camera } = useThree()
+    
+    // Set model rotation on load
+    useEffect(() => {
+        if (scene) {
+            scene.rotation.set(rotation[0], rotation[1], rotation[2]);
+        }
+    }, [scene, rotation]);
     
     // Animation controls
     const controls = useRef({

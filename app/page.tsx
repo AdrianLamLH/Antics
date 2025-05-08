@@ -753,6 +753,7 @@ export default function Home() {
                 aiResponse={aiResponse}
                 modelPath="/jinx.glb"
                 scale={[1.5,1.5,1.5]}
+                rotation={[0, Math.PI, 0]} // Rotate 180 degrees around Y axis
               />
             </Suspense>
             <CuboidCollider 
@@ -807,6 +808,7 @@ export default function Home() {
                 aiResponse={character2AiResponse}
                 modelPath="/midoriya.glb"
                 color="blue"
+                rotation={[0, Math.PI, 0]} // Rotate 180 degrees around Y axis
               />
             </Suspense>
             <CuboidCollider 

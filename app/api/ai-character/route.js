@@ -19,7 +19,7 @@ export async function POST(req) {
     const goals = characterConfig?.goals || "";
     const speechStyle = characterConfig?.speechStyle || "";
     const customInstructions = characterConfig?.customInstructions || "";
-    
+
     console.log("Received request with controls:", controls);
     
     // 3. DETERMINE COMMAND TYPE
@@ -297,83 +297,83 @@ SPEECH: This appears to be a virtual landscape with interesting geometric featur
 }
 
 async function callClaudeAPI(prompt, image) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.CLAUDE_API_KEY, 
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 1000,
-      messages: [
-        {
-          role: "user",
-          content: [
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.CLAUDE_API_KEY, 
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: "claude-3-sonnet-20240229",
+        max_tokens: 1000,
+        messages: [
+          {
+            role: "user",
+            content: [
             { type: "text", text: prompt },
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: image.replace('data:image/jpeg;base64,', '')
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/jpeg",
+                  data: image.replace('data:image/jpeg;base64,', '')
+                }
               }
-            }
-          ]
-        }
-      ]
-    })
-  });
+            ]
+          }
+        ]
+      })
+    });
 
-  if (!response.ok) {
-    console.error("Claude API error:", response.status, response.statusText);
-    throw new Error(`Claude API returned ${response.status}`);
-  }
+    if (!response.ok) {
+      console.error("Claude API error:", response.status, response.statusText);
+      throw new Error(`Claude API returned ${response.status}`);
+    }
 
   return await response.json();
 }
 
 function parseClaudeResponse(fullText) {
-  const aiResponse = {
-    thought: "",
-    speech: "",
-    actions: []
-  };
-  
-  // Extract thought
-  const thoughtMatch = fullText.match(/THOUGHT:(.+?)(?=SPEECH:|$)/s);
-  if (thoughtMatch) {
-    aiResponse.thought = thoughtMatch[1].trim();
-  } else {
-    aiResponse.thought = "I need to respond to the user's request.";
-  }
-  
-  // Extract speech
-  const speechMatch = fullText.match(/SPEECH:(.+?)(?=ACTIONS:|$)/s);
-  if (speechMatch) {
-    aiResponse.speech = speechMatch[1].trim();
-  } else {
-    aiResponse.speech = "I understand what you're asking.";
-  }
-  
-  // Extract actions
-  const actionsMatch = fullText.match(/ACTIONS:(.+)$/s);
-  aiResponse.actions = [];
-  
-  if (actionsMatch) {
-    const actionsText = actionsMatch[1].trim();
-    const actionLines = actionsText.split('\n');
+    const aiResponse = {
+      thought: "",
+      speech: "",
+      actions: []
+    };
     
-    actionLines.forEach(line => {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 3) {
-        const [type, valueStr, delayStr] = parts;
-        
+    // Extract thought
+    const thoughtMatch = fullText.match(/THOUGHT:(.+?)(?=SPEECH:|$)/s);
+    if (thoughtMatch) {
+      aiResponse.thought = thoughtMatch[1].trim();
+    } else {
+    aiResponse.thought = "I need to respond to the user's request.";
+    }
+    
+    // Extract speech
+    const speechMatch = fullText.match(/SPEECH:(.+?)(?=ACTIONS:|$)/s);
+    if (speechMatch) {
+      aiResponse.speech = speechMatch[1].trim();
+    } else {
+    aiResponse.speech = "I understand what you're asking.";
+    }
+    
+    // Extract actions
+    const actionsMatch = fullText.match(/ACTIONS:(.+)$/s);
+    aiResponse.actions = [];
+    
+    if (actionsMatch) {
+      const actionsText = actionsMatch[1].trim();
+      const actionLines = actionsText.split('\n');
+      
+      actionLines.forEach(line => {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          const [type, valueStr, delayStr] = parts;
+          
         const value = parseFloat(valueStr);
-        const delay = parseInt(delayStr, 10);
-        
-        if (!isNaN(value) && !isNaN(delay) && delay > 0) {
+            const delay = parseInt(delayStr, 10);
+            
+            if (!isNaN(value) && !isNaN(delay) && delay > 0) {
           aiResponse.actions.push({ type, value, delay });
         }
       }
@@ -415,7 +415,12 @@ function processTurnCommand(aiResponse, userMessage) {
   
   // Determine direction
   const isRight = !userMessage.toLowerCase().includes('left');
-  if (!isRight) angle = -angle;
+  
+  // INVERT THE DIRECTION to fix the reversed turning
+  // if isRight is true, we want to turn left in the physics system (negative angle)
+  // if isRight is false, we want to turn right in the physics system (positive angle)
+  if (isRight) angle = -angle;
+  else angle = Math.abs(angle);
   
   // Replace all actions with a single turn
   aiResponse.actions = [{
@@ -457,14 +462,14 @@ function processMovementCommand(aiResponse, commandType) {
     
     // Add more actions to reach at least 2
     for (let i = aiResponse.actions.length; i < 2; i++) {
-      aiResponse.actions.push({
+              aiResponse.actions.push({
         type: commandType,
         value: defaultDistances[i % defaultDistances.length],
         delay: defaultDelays[i % defaultDelays.length]
-      });
-    }
-  }
-}
+              });
+            }
+          }
+        }
 
 function addDefaultExploratoryActions(aiResponse) {
   aiResponse.actions = [
@@ -502,7 +507,7 @@ function getFallbackResponse() {
   return {
     thought: "I should respond appropriately to the user.",
     speech: "I'm not sure I understood that correctly. Could you tell me what you'd like me to do?",
-    actions: [
+      actions: [
       { type: "wait", value: 500, delay: 500 }
     ]
   };
