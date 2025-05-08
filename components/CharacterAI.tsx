@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import ViewCapture from './ViewCapture';
-import { requestAIActions } from '../utils/aiService';
+import { requestAIActions } from '../utils/AIService';
 import * as THREE from 'three'; // Add this import
 
 
